@@ -2,80 +2,117 @@
  * @fileoverview Firestore Security Rules for CipherVault.
  *
  * Core Philosophy:
- * This ruleset enforces a strict user-ownership model. Only the authenticated user can access their own data, which includes vaults and credentials.
+ * This ruleset enforces a strict user-ownership model. All data is nested under
+ * /users/{userId}, and only the authenticated user can access their own data.
  *
  * Data Structure:
- * All data is nested under /users/{userId}, ensuring that all documents are owned by the user identified by {userId}.  Vaults are stored in /users/{userId}/vaults/{vaultId}, and credentials are stored in /users/{userId}/vaults/{vaultId}/credentials/{credentialId}.
+ * The data model follows a hierarchical structure:
+ * /users/{userId} - User profiles
+ * /users/{userId}/vaults/{vaultId} - Password vaults owned by the user
+ * /users/{userId}/vaults/{vaultId}/credentials/{credentialId} - Credentials within a vault
  *
  * Key Security Decisions:
  * - User listing is disallowed.
- * - Only authenticated users can access their data.
- * - Data consistency between the path and the document's internal fields is enforced.
- *
- * Denormalization for Authorization:
- * The Firestore structure itself denormalizes authorization data.  The nesting of vaults and credentials under the user's document avoids the need for `get()` calls to determine ownership.
+ * - Path-based ownership is strictly enforced. Every document is owned by the user whose ID is in the path.
+ * - Data validation is relaxed to allow for rapid prototyping, focusing only on authorization-critical fields.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Prevents listing all users. Only allows access to a specific user's document.
-     * @path /users/{userId}
-     * @allow (get) User with matching UID can read their profile.
-     * @deny (list) No one can list all users.
-     * @principle Enforces document ownership and prevents unauthorized listing.
+     * @description Checks if the request is authenticated.
+     * @returns {boolean} True if the request is authenticated, false otherwise.
      */
-    match /users/{userId} {
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if false;
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isExistingOwner(userId);
-      allow delete: if isSignedIn() && isExistingOwner(userId);
-    }
-
-    /**
-     * @description Manages user vaults. Only the vault owner can create, read, update, and delete vaults.
-     * @path /users/{userId}/vaults/{vaultId}
-     * @allow (create) User with matching UID can create a vault with the vaultId.
-     * @allow (get) User with matching UID can read their vault.
-     * @deny (update) User cannot update vault if not the owner.
-     * @principle Enforces document ownership for vault data.
-     */
-    match /users/{userId}/vaults/{vaultId} {
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if isSignedIn() && isOwner(userId);
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isExistingOwner(userId);
-      allow delete: if isSignedIn() && isExistingOwner(userId);
-    }
-
-    /**
-     * @description Manages user credentials within a vault. Only the credential owner can create, read, update, and delete credentials.
-     * @path /users/{userId}/vaults/{vaultId}/credentials/{credentialId}
-     * @allow (create) User with matching UID can create a credential with the credentialId.
-     * @allow (get) User with matching UID can read their credential.
-     * @deny (update) User cannot update credential if not the owner.
-     * @principle Enforces document ownership for credential data.
-     */
-    match /users/{userId}/vaults/{vaultId}/credentials/{credentialId} {
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if isSignedIn() && isOwner(userId);
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isExistingOwner(userId);
-      allow delete: if isSignedIn() && isExistingOwner(userId);
-    }
-
     function isSignedIn() {
       return request.auth != null;
     }
 
+    /**
+     * @description Checks if the authenticated user ID matches the provided user ID.
+     * @param {string} userId The user ID to compare against.
+     * @returns {boolean} True if the user is the owner, false otherwise.
+     */
     function isOwner(userId) {
-      return request.auth.uid == userId;
+      return isSignedIn() && request.auth.uid == userId;
     }
 
+    /**
+     * @description Checks if the authenticated user is the existing owner of the resource.
+     * @param {string} userId The user ID to compare against.
+     * @returns {boolean} True if the user is the existing owner, false otherwise.
+     */
     function isExistingOwner(userId) {
-        return isOwner(userId) && exists(resource);
+        return isOwner(userId) && resource != null;
+    }
+
+    /**
+     * @description Rules for the /users/{userId} collection.
+     * @path /users/{userId}
+     * @allow (create) User with ID 'user123' can create their own user document.
+     *    Request: { "auth": { "uid": "user123" }, "method": "create", "path": "/databases/(default)/documents/users/user123", "resource": { "data": { "id": "user123", "email": "test@example.com" } } }
+     * @deny (create) User with ID 'user123' cannot create a user document with a mismatched ID 'user456'.
+     *    Request: { "auth": { "uid": "user123" }, "method": "create", "path": "/databases/(default)/documents/users/user456", "resource": { "data": { "id": "user456", "email": "test@example.com" } } }
+     * @deny (get) Any user cannot get a user document if not authenticated
+     *    Request: { "auth": null, "method": "get", "path": "/databases/(default)/documents/users/user123" }
+     * @deny (update) Any user cannot update a user document if not the owner
+     *    Request: { "auth": { "uid": "user456" }, "method": "update", "path": "/databases/(default)/documents/users/user123", "resource": { "data": { "id": "user123", "email": "new@example.com" } } }
+     * @deny (delete) Any user cannot delete a user document if not the owner
+     *    Request: { "auth": { "uid": "user456" }, "method": "delete", "path": "/databases/(default)/documents/users/user123" }
+     * @principle Enforces document ownership for writes.
+     */
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Rules for the /users/{userId}/vaults/{vaultId} collection.
+     * @path /users/{userId}/vaults/{vaultId}
+     * @allow (create) User with ID 'user123' can create a vault document under their user ID.
+     *    Request: { "auth": { "uid": "user123" }, "method": "create", "path": "/databases/(default)/documents/users/user123/vaults/vault456", "resource": { "data": { "userId": "user123", "vaultName": "My Vault" } } }
+     * @deny (create) User with ID 'user123' cannot create a vault document under another user's ID 'user456'.
+     *    Request: { "auth": { "uid": "user123" }, "method": "create", "path": "/databases/(default)/documents/users/user456/vaults/vault456", "resource": { "data": { "userId": "user456", "vaultName": "My Vault" } } }
+     * @deny (get) Any unauthenticated user cannot get a vault document
+     *    Request: { "auth": null, "method": "get", "path": "/databases/(default)/documents/users/user123/vaults/vault456" }
+     * @deny (update) Any user cannot update a vault document if not the owner
+     *    Request: { "auth": { "uid": "user456" }, "method": "update", "path": "/databases/(default)/documents/users/user123/vaults/vault456", "resource": { "data": { "userId": "user123", "vaultName": "New Vault Name" } } }
+     * @deny (delete) Any user cannot delete a vault document if not the owner
+     *    Request: { "auth": { "uid": "user456" }, "method": "delete", "path": "/databases/(default)/documents/users/user123/vaults/vault456" }
+     * @principle Restricts access to a user's own data tree.
+     */
+    match /users/{userId}/vaults/{vaultId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Rules for the /users/{userId}/vaults/{vaultId}/credentials/{credentialId} collection.
+     * @path /users/{userId}/vaults/{vaultId}/credentials/{credentialId}
+     * @allow (create) User with ID 'user123' can create a credential document under their user ID and vault ID.
+     *    Request: { "auth": { "uid": "user123" }, "method": "create", "path": "/databases/(default)/documents/users/user123/vaults/vault456/credentials/cred789", "resource": { "data": { "vaultId": "vault456", "serviceName": "Example Service", "username": "testuser" } } }
+     * @deny (create) User with ID 'user123' cannot create a credential document under another user's ID 'user456'.
+     *    Request: { "auth": { "uid": "user123" }, "method": "create", "path": "/databases/(default)/documents/users/user456/vaults/vault456/credentials/cred789", "resource": { "data": { "vaultId": "vault456", "serviceName": "Example Service", "username": "testuser" } } }
+     * @deny (get) Any unauthenticated user cannot get a credential document
+     *    Request: { "auth": null, "method": "get", "path": "/databases/(default)/documents/users/user123/vaults/vault456/credentials/cred789" }
+     * @deny (update) Any user cannot update a credential document if not the owner
+     *    Request: { "auth": { "uid": "user456" }, "method": "update", "path": "/databases/(default)/documents/users/user123/vaults/vault456/credentials/cred789", "resource": { "data": { "vaultId": "vault456", "serviceName": "New Service Name", "username": "testuser" } } }
+     * @deny (delete) Any user cannot delete a credential document if not the owner
+     *    Request: { "auth": { "uid": "user456" }, "method": "delete", "path": "/databases/(default)/documents/users/user123/vaults/vault456/credentials/cred789" }
+     * @principle Enforces path-based ownership to secure credentials.
+     */
+    match /users/{userId}/vaults/{vaultId}/credentials/{credentialId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.vaultId == vaultId;
+      allow update: if isExistingOwner(userId) && request.resource.data.vaultId == resource.data.vaultId;
+      allow delete: if isExistingOwner(userId);
     }
   }
 }
