@@ -100,7 +100,7 @@ function DashboardPage() {
   };
 
   const renderDashboard = () => (
-     <div className="p-4 sm:p-6 lg:p-8 flex flex-col gap-6">
+     <div className="p-4 sm:p-6 lg:p-8 flex flex-col gap-6 overflow-y-auto">
         <h1 className="text-3xl font-bold">Security Dashboard</h1>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
@@ -230,7 +230,7 @@ function DashboardPage() {
   );
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
+    <div className="flex flex-col h-screen bg-background overflow-hidden">
       <Header onMenuClick={toggleSidebar} />
        <MobileSidebar
         isOpen={isMobileSidebarOpen}
@@ -244,10 +244,10 @@ function DashboardPage() {
         onAddFolder={addFolder}
       />
       <main className={cn(
-          "flex-1 md:grid",
-          isDesktopSidebarOpen ? "md:grid-cols-[280px_1fr] lg:grid-cols-[320px_1fr]" : "md:grid-cols-[0_1fr]"
+          "flex-1 grid transition-all duration-300",
+          isDesktopSidebarOpen ? "md:grid-cols-[280px_1fr] lg:grid-cols-[320px_1fr]" : "md:grid-cols-[80px_1fr]"
       )}>
-        <aside className={cn("hidden md:block transition-all duration-300", isDesktopSidebarOpen ? "w-[280px] lg:w-[320px]" : "w-0")}>
+        <aside className={cn("hidden md:block transition-all duration-300 overflow-hidden", isDesktopSidebarOpen ? "w-[280px] lg:w-[320px]" : "w-[80px]")}>
            <FolderSidebar
             folders={folders}
             tags={allTags}
@@ -256,6 +256,7 @@ function DashboardPage() {
             onSelectFolder={selectFolder}
             onSelectTag={selectTag}
             onAddFolder={addFolder}
+            isCollapsed={!isDesktopSidebarOpen}
             />
         </aside>
         {renderDashboard()}

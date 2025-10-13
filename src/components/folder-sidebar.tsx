@@ -10,12 +10,61 @@ import { cn } from "@/lib/utils";
 import { Input } from "./ui/input";
 import { Separator } from "./ui/separator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+
 
 export type Folder = {
   id: string;
   name: string;
   icon?: LucideIcon;
 };
+
+type NavLinkProps = {
+    href?: string;
+    onClick?: () => void;
+    isActive: boolean;
+    isCollapsed: boolean;
+    label: string;
+    icon: LucideIcon;
+    asChild?: boolean;
+}
+
+const NavLink = ({ href, onClick, isActive, isCollapsed, label, icon: Icon, asChild }: NavLinkProps) => {
+    const content = (
+        <>
+            <Icon className={cn("h-5 w-5", isCollapsed ? "mx-auto" : "mr-3")} />
+            {!isCollapsed && label}
+        </>
+    );
+    
+    const button = (
+         <Button
+            variant={isActive ? "secondary" : "ghost"}
+            className={cn("w-full text-base", isCollapsed ? "justify-center px-0" : "justify-start")}
+            onClick={onClick}
+            asChild={asChild}
+        >
+            {href ? <Link href={href}>{content}</Link> : content}
+        </Button>
+    )
+
+    if (isCollapsed) {
+        return (
+            <TooltipProvider>
+                <Tooltip delayDuration={0}>
+                    <TooltipTrigger asChild>
+                        {button}
+                    </TooltipTrigger>
+                    <TooltipContent side="right">
+                        {label}
+                    </TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
+        )
+    }
+
+    return button;
+}
 
 type FolderSidebarProps = {
   folders: Folder[];
@@ -26,6 +75,7 @@ type FolderSidebarProps = {
   onSelectTag: (tag: string | null) => void;
   onAddFolder: (name: string) => void;
   onClose?: () => void;
+  isCollapsed?: boolean;
 };
 
 export function FolderSidebar({
@@ -37,6 +87,7 @@ export function FolderSidebar({
   onSelectTag,
   onAddFolder,
   onClose,
+  isCollapsed = false,
 }: FolderSidebarProps) {
   const [isAdding, setIsAdding] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
@@ -94,135 +145,121 @@ export function FolderSidebar({
   const isVaultPage = pathname === '/vault';
 
   const content = (
-    <>
-      <nav className="flex flex-col gap-1">
-        <Button
-          variant={pathname === "/dashboard" ? "secondary" : "ghost"}
-          className="w-full justify-start text-base"
-          asChild
-        >
-          <Link href="/dashboard" onClick={onClose}>
-            <LayoutDashboard className="mr-3 h-5 w-5" />
-            Dashboard
-          </Link>
-        </Button>
-        <Button
-          variant={isVaultPage && selectedFolderId === null && selectedTag === null ? "secondary" : "ghost"}
-          className="w-full justify-start text-base"
-          onClick={handleSelectAll}
-          asChild={!isVaultPage}
-        >
-          {isVaultPage ? (
-             <div className="flex items-center w-full">
-              <FolderIcon className="mr-3 h-5 w-5" />
-              All Passwords
-            </div>
-          ) : (
-            <Link href="/vault" onClick={onClose}>
-              <FolderIcon className="mr-3 h-5 w-5" />
-              All Passwords
-            </Link>
-          )}
-        </Button>
-      </nav>
+    <TooltipProvider>
+        <nav className="flex flex-col gap-1">
+            <NavLink 
+                href="/dashboard"
+                onClick={onClose}
+                isActive={pathname === "/dashboard"}
+                isCollapsed={isCollapsed}
+                label="Dashboard"
+                icon={LayoutDashboard}
+                asChild
+            />
+            <NavLink 
+                href={isVaultPage ? undefined : "/vault"}
+                onClick={isVaultPage ? handleSelectAll : onClose}
+                isActive={isVaultPage && selectedFolderId === null && selectedTag === null}
+                isCollapsed={isCollapsed}
+                label="All Passwords"
+                icon={FolderIcon}
+                asChild={!isVaultPage}
+            />
+        </nav>
 
-      <Separator />
-      
-      <h2 className="text-lg font-semibold tracking-tight -mb-2 px-2">Folders</h2>
-      <nav className="flex flex-col gap-1">
-        {folders && folders.map((folder) => (
-          <Button
-            key={folder.id}
-            variant={pathname === '/vault' && selectedFolderId === folder.id ? "secondary" : "ghost"}
-            className="w-full justify-start text-base"
-            onClick={() => handleFolderSelect(folder.id)}
-          >
-            <FolderIcon className="mr-3 h-5 w-5" />
-            {folder.name}
-          </Button>
-        ))}
-      </nav>
-
-      {tags.length > 0 && (
-        <>
-          <Separator />
-          <h2 className="text-lg font-semibold tracking-tight -mb-2 px-2">Tags</h2>
-          <nav className="flex flex-col gap-1">
-            {tags.map((tag) => (
-              <Button
-                key={tag}
-                variant={pathname === '/vault' && selectedTag === tag ? "secondary" : "ghost"}
-                className="w-full justify-start text-base"
-                onClick={() => handleTagSelect(tag)}
-              >
-                <Tag className="mr-3 h-5 w-5" />
-                {tag}
-              </Button>
+        <Separator />
+        
+        {!isCollapsed && <h2 className="text-lg font-semibold tracking-tight -mb-2 px-2">Folders</h2>}
+        <nav className="flex flex-col gap-1">
+            {folders && folders.map((folder) => (
+            <NavLink
+                key={folder.id}
+                onClick={() => handleFolderSelect(folder.id)}
+                isActive={pathname === '/vault' && selectedFolderId === folder.id}
+                isCollapsed={isCollapsed}
+                label={folder.name}
+                icon={FolderIcon}
+            />
             ))}
-          </nav>
-        </>
-      )}
+        </nav>
 
-      {specialFolders.length > 0 && (
-        <>
-          <Separator />
-          <nav className="flex flex-col gap-1">
-            {specialFolders.map((folder) => {
-              const Icon = folder.icon || FolderIcon;
-              return (
-                <Button
-                  key={folder.id}
-                  variant={pathname === '/vault' && selectedFolderId === folder.id ? "secondary" : "ghost"}
-                  className="w-full justify-start text-base"
-                  onClick={() => handleFolderSelect(folder.id)}
-                >
-                  <Icon className="mr-3 h-5 w-5" />
-                  {folder.name}
-                </Button>
-              );
-            })}
-          </nav>
-        </>
-      )}
-
-      <div className="mt-auto">
-        {isAdding ? (
-          <div className="space-y-2">
-            <div className="relative">
-              <Input
-                type="text"
-                placeholder="New folder name..."
-                value={newFolderName}
-                onChange={(e) => setNewFolderName(e.target.value)}
-                onKeyDown={handleKeyDown}
-                className="pr-8"
-                autoFocus
-              />
-              <Button
-                size="icon"
-                variant="ghost"
-                className="absolute right-0 top-0 h-full"
-                onClick={handleCancelAdd}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            <Button onClick={handleSaveNewFolder} className="w-full">
-              Save Folder
-            </Button>
-          </div>
-        ) : (
-          <Button variant="outline" className="w-full" onClick={handleAddClick}>
-            <Plus className="mr-2 h-5 w-5" />
-            New Folder
-          </Button>
+        {tags && tags.length > 0 && (
+            <>
+            <Separator />
+            {!isCollapsed && <h2 className="text-lg font-semibold tracking-tight -mb-2 px-2">Tags</h2>}
+            <nav className="flex flex-col gap-1">
+                {tags.map((tag) => (
+                <NavLink
+                    key={tag}
+                    onClick={() => handleTagSelect(tag)}
+                    isActive={pathname === '/vault' && selectedTag === tag}
+                    isCollapsed={isCollapsed}
+                    label={tag}
+                    icon={Tag}
+                />
+                ))}
+            </nav>
+            </>
         )}
-      </div>
-    </>
+
+        {specialFolders.length > 0 && (
+            <>
+            <Separator />
+            <nav className="flex flex-col gap-1">
+                {specialFolders.map((folder) => (
+                <NavLink
+                    key={folder.id}
+                    onClick={() => handleFolderSelect(folder.id)}
+                    isActive={pathname === '/vault' && selectedFolderId === folder.id}
+                    isCollapsed={isCollapsed}
+                    label={folder.name}
+                    icon={folder.icon || FolderIcon}
+                />
+                ))}
+            </nav>
+            </>
+        )}
+
+        <div className="mt-auto">
+            {isAdding ? (
+            <div className="space-y-2">
+                {!isCollapsed && (
+                    <div className="relative">
+                        <Input
+                            type="text"
+                            placeholder="New folder name..."
+                            value={newFolderName}
+                            onChange={(e) => setNewFolderName(e.target.value)}
+                            onKeyDown={handleKeyDown}
+                            className="pr-8"
+                            autoFocus
+                        />
+                        <Button
+                            size="icon"
+                            variant="ghost"
+                            className="absolute right-0 top-0 h-full"
+                            onClick={handleCancelAdd}
+                        >
+                            <X className="h-4 w-4" />
+                        </Button>
+                    </div>
+                )}
+                <Button onClick={handleSaveNewFolder} className="w-full">
+                   {!isCollapsed ? 'Save Folder' : <Plus className="h-5 w-5" />}
+                </Button>
+            </div>
+            ) : (
+                <Button variant="outline" className="w-full" onClick={handleAddClick}>
+                    <Plus className={cn("h-5 w-5", !isCollapsed && "mr-2")} />
+                    {!isCollapsed && 'New Folder'}
+                </Button>
+            )}
+        </div>
+    </TooltipProvider>
   );
 
   return (
-    <div className="border-r bg-muted/40 p-4 flex flex-col gap-4 h-full overflow-y-auto">
+    <div className={cn("bg-muted/40 p-4 flex flex-col gap-4 h-full overflow-y-auto", isCollapsed && "items-center")}>
       {content}
     </div>
   );
@@ -231,7 +268,7 @@ export function FolderSidebar({
 type MobileSidebarProps = {
     isOpen: boolean;
     onOpenChange: (isOpen: boolean) => void;
-} & Omit<FolderSidebarProps, 'onClose'>;
+} & Omit<FolderSidebarProps, 'onClose' | 'isCollapsed'>;
 
 export function MobileSidebar({ isOpen, onOpenChange, ...props}: MobileSidebarProps) {
     return (
@@ -242,7 +279,7 @@ export function MobileSidebar({ isOpen, onOpenChange, ...props}: MobileSidebarPr
                     <SheetDescription className="text-left">A clean and secure password manager.</SheetDescription>
                 </SheetHeader>
                 <div className="p-4 flex flex-col gap-4 flex-1 overflow-y-auto">
-                    <FolderSidebar {...props} onClose={() => onOpenChange(false)} />
+                    <FolderSidebar {...props} onClose={() => onOpenChange(false)} isCollapsed={false} />
                 </div>
             </SheetContent>
         </Sheet>
