@@ -264,7 +264,7 @@ export default function PasswordList({ passwords, setPasswords, selectedFolderId
                       <Undo className="mr-2 h-4 w-4" /> Restore ({selectedIds.length})
                   </Button>
                   <Button variant="destructive" size="sm" onClick={() => handleDeleteRequest(selectedIds, true)}>
-                      <Trash2 className="mr-2 h-4 w-4" /> Delete Permanently ({selectedIds.length})
+                      <Trash2 className="mr-2 h-4 w-4" /> Delete ({selectedIds.length})
                   </Button>
               </div>
           )
@@ -276,7 +276,7 @@ export default function PasswordList({ passwords, setPasswords, selectedFolderId
                 <Download className="mr-2 h-4 w-4" /> Export ({selectedIds.length})
             </Button>
             <Button variant="destructive" size="sm" onClick={() => handleDeleteRequest(selectedIds)}>
-              <Trash2 className="mr-2 h-4 w-4" /> Move to Trash ({selectedIds.length})
+              <Trash2 className="mr-2 h-4 w-4" /> Trash ({selectedIds.length})
             </Button>
         </div>
       )
@@ -295,8 +295,8 @@ export default function PasswordList({ passwords, setPasswords, selectedFolderId
 
   return (
     <>
-      <Card className="shadow-lg h-full flex flex-col">
-        <CardHeader>
+      <Card className="shadow-lg h-full flex flex-col border-0 sm:border">
+        <CardHeader className="pt-2 sm:pt-6">
           <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
             <div className="flex-1">
                 <CardTitle>{folderTitle}</CardTitle>
@@ -305,10 +305,10 @@ export default function PasswordList({ passwords, setPasswords, selectedFolderId
             <div className="flex w-full sm:w-auto items-center gap-2">
                 {!isTrashView && (
                     <>
-                        <Button variant="outline" onClick={() => setIsExportOpen(true)}>
+                        <Button variant="outline" onClick={() => setIsExportOpen(true)} className="hidden sm:inline-flex">
                             <Download className="mr-2 h-4 w-4" /> Export
                         </Button>
-                        <Button onClick={handleOpenAddForm} className="whitespace-nowrap">
+                        <Button onClick={handleOpenAddForm} className="whitespace-nowrap w-full sm:w-auto">
                             <PlusCircle className="mr-2 h-4 w-4" />
                             Add Password
                         </Button>
@@ -392,16 +392,16 @@ export default function PasswordList({ passwords, setPasswords, selectedFolderId
                 </div>
             )}
         </CardHeader>
-        <CardContent className="flex-1 flex flex-col">
+        <CardContent className="flex-1 flex flex-col p-0 sm:p-6 sm:pt-0">
           {selectedIds.length > 0 && (
-            <div className="mb-4 p-3 bg-muted rounded-md flex items-center justify-between">
+            <div className="mb-4 p-3 bg-muted rounded-md flex flex-col sm:flex-row items-center justify-between gap-2">
                 <p className="text-sm font-medium">{selectedIds.length} of {filteredAndSortedPasswords.length} selected</p>
                 <BulkActions />
             </div>
           )}
-          <div className="border rounded-md flex-1">
+          <div className="border-t sm:border sm:rounded-md flex-1">
             <Table>
-              <TableHeader>
+              <TableHeader className="hidden md:table-header-group">
                 <TableRow>
                   <TableHead className="w-[50px]">
                      <Checkbox
@@ -422,17 +422,17 @@ export default function PasswordList({ passwords, setPasswords, selectedFolderId
                   <TableRow 
                     key={entry.id} 
                     data-state={selectedIds.includes(entry.id) && "selected"}
-                    className="cursor-pointer"
+                    className="cursor-pointer md:table-row flex flex-col md:flex-row p-4 md:p-0 border-b"
                     onClick={() => handleOpenDetailView(entry)}
                   >
-                    <TableCell onClick={(e) => e.stopPropagation()}>
+                    <TableCell className="w-[50px] hidden md:table-cell" onClick={(e) => e.stopPropagation()}>
                          <Checkbox
                             checked={selectedIds.includes(entry.id)}
                             onCheckedChange={(checked) => handleSelect(entry.id, Boolean(checked))}
                             aria-label={`Select ${entry.serviceName}`}
                         />
                     </TableCell>
-                     <TableCell onClick={(e) => e.stopPropagation()}>
+                    <TableCell className="w-[30px] hidden md:table-cell" onClick={(e) => e.stopPropagation()}>
                         <Button
                             variant="ghost"
                             size="icon"
@@ -443,19 +443,73 @@ export default function PasswordList({ passwords, setPasswords, selectedFolderId
                             <Star className={cn("h-4 w-4", entry.isFavorite ? "text-yellow-400 fill-yellow-400" : "text-muted-foreground")} />
                         </Button>
                     </TableCell>
-                    <TableCell className="font-medium">
-                      <div className="flex flex-col gap-1">
-                        <span>{entry.serviceName}</span>
-                        {entry.tags && entry.tags.length > 0 && !isTrashView && (
-                          <div className="flex flex-wrap gap-1">
+                    <TableCell className="font-medium p-0 md:p-4">
+                      <div className="flex items-center justify-between">
+                         <div className="flex items-center gap-2">
+                            <div className="md:hidden" onClick={(e) => e.stopPropagation()}>
+                                <Checkbox
+                                    checked={selectedIds.includes(entry.id)}
+                                    onCheckedChange={(checked) => handleSelect(entry.id, Boolean(checked))}
+                                    aria-label={`Select ${entry.serviceName}`}
+                                />
+                            </div>
+                            <span className="font-semibold text-base">{entry.serviceName}</span>
+                         </div>
+                        <div className="md:hidden" onClick={(e) => e.stopPropagation()}>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon">
+                                        <MoreHorizontal />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    {!isTrashView && (
+                                        <>
+                                            <DropdownMenuItem onClick={() => handleOpenEditForm(entry)}>
+                                                <Pencil className="mr-2" /> Edit
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => toggleFavorite(entry.id)}>
+                                                <Star className={cn("mr-2", entry.isFavorite ? "text-yellow-400 fill-yellow-400" : "")} /> 
+                                                {entry.isFavorite ? "Unfavorite" : "Favorite"}
+                                            </DropdownMenuItem>
+                                            <DropdownMenuSeparator />
+                                            <DropdownMenuItem onClick={() => handleCopy(entry.username, `${entry.id}-username`)}>
+                                                <ClipboardCopy className="mr-2" /> Copy Username
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => handleCopy(entry.password, `${entry.id}-password`, true)}>
+                                                <KeyRound className="mr-2" /> Copy Password
+                                            </DropdownMenuItem>
+                                            <DropdownMenuSeparator />
+                                            <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDeleteRequest([entry.id])}>
+                                                <Trash2 className="mr-2" /> Move to Trash
+                                            </DropdownMenuItem>
+                                        </>
+                                    )}
+                                    {isTrashView && (
+                                        <>
+                                            <DropdownMenuItem onClick={() => handleRestore([entry.id])}>
+                                                <Undo className="mr-2" /> Restore
+                                            </DropdownMenuItem>
+                                            <DropdownMenuSeparator />
+                                            <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDeleteRequest([entry.id], true)}>
+                                                <ShieldAlert className="mr-2" /> Delete Permanently
+                                            </DropdownMenuItem>
+                                        </>
+                                    )}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
+                      </div>
+                      <div className="text-muted-foreground text-sm pl-8 md:pl-0">{entry.username}</div>
+                       {entry.tags && entry.tags.length > 0 && !isTrashView && (
+                          <div className="flex flex-wrap gap-1 mt-2 pl-8 md:pl-0">
                             {entry.tags.map(tag => (
                               <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>
                             ))}
                           </div>
                         )}
-                      </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden md:table-cell">
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-mono flex-1 truncate">
                           {entry.username}
@@ -470,7 +524,7 @@ export default function PasswordList({ passwords, setPasswords, selectedFolderId
                         </Button>
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden md:table-cell">
                       <div className="flex items-center justify-between gap-2">
                          <div className="flex flex-col gap-1.5 flex-1">
                            <span className="font-mono">
@@ -488,7 +542,7 @@ export default function PasswordList({ passwords, setPasswords, selectedFolderId
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                    <TableCell className="text-right hidden md:table-cell" onClick={(e) => e.stopPropagation()}>
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="icon">

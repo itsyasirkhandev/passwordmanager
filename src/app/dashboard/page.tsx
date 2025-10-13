@@ -1,9 +1,10 @@
 
 "use client";
 
+import { useState } from "react";
 import { useVault } from "@/context/vault-context";
 import Header from "@/components/header";
-import { FolderSidebar } from "@/components/folder-sidebar";
+import { FolderSidebar, MobileSidebar } from "@/components/folder-sidebar";
 import { Star, Trash2, ShieldCheck, ShieldAlert, Folder, KeyRound, ArrowRight, CopyWarning } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { StrengthChart } from "./strength-chart";
@@ -14,7 +15,8 @@ import { cn } from "@/lib/utils";
 import { useMemo } from "react";
 
 export default function DashboardPage() {
-  const { passwords, folders, addFolder, selectFolder, selectTag } = useVault();
+  const { passwords, folders, addFolder, selectFolder, selectTag, allTags, selectedFolderId, selectedTag } = useVault();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
   const activePasswords = passwords.filter(p => !p.deletedAt);
   const totalPasswords = activePasswords.length;
@@ -76,21 +78,38 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
-      <Header />
-      <main className="flex-1 grid md:grid-cols-[280px_1fr] lg:grid-cols-[320px_1fr]">
-        <FolderSidebar
-          folders={folders}
-          specialFolders={[
-            { id: "favorites", name: "Favorites", icon: Star },
-            { id: "trash", name: "Trash", icon: Trash2 },
-          ]}
-          tags={[]} // Tags are dynamically generated in vault view, can be empty here
-          selectedFolderId={null}
-          selectedTag={null}
-          onSelectFolder={selectFolder}
-          onSelectTag={selectTag}
-          onAddFolder={addFolder}
-        />
+      <Header onMenuClick={() => setIsSidebarOpen(true)} />
+       <MobileSidebar
+        isOpen={isSidebarOpen}
+        onOpenChange={setIsSidebarOpen}
+        folders={folders}
+        specialFolders={[
+          { id: "favorites", name: "Favorites", icon: Star },
+          { id: "trash", name: "Trash", icon: Trash2 },
+        ]}
+        tags={allTags}
+        selectedFolderId={selectedFolderId}
+        selectedTag={selectedTag}
+        onSelectFolder={selectFolder}
+        onSelectTag={selectTag}
+        onAddFolder={addFolder}
+      />
+      <main className="flex-1 md:grid md:grid-cols-[280px_1fr] lg:grid-cols-[320px_1fr]">
+        <aside className="hidden md:block">
+           <FolderSidebar
+            folders={folders}
+            specialFolders={[
+                { id: "favorites", name: "Favorites", icon: Star },
+                { id: "trash", name: "Trash", icon: Trash2 },
+            ]}
+            tags={allTags}
+            selectedFolderId={selectedFolderId}
+            selectedTag={selectedTag}
+            onSelectFolder={selectFolder}
+            onSelectTag={selectTag}
+            onAddFolder={addFolder}
+            />
+        </aside>
         <div className="p-4 sm:p-6 lg:p-8 flex flex-col gap-6">
             <h1 className="text-3xl font-bold">Security Dashboard</h1>
 

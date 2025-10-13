@@ -1,13 +1,15 @@
+
 "use client";
 
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Folder as FolderIcon, Plus, X, type LucideIcon, Tag, LayoutDashboard } from "lucide-react";
+import { Folder as FolderIcon, Plus, X, type LucideIcon, Tag, LayoutDashboard, Star, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Input } from "./ui/input";
 import { Separator } from "./ui/separator";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 
 export type Folder = {
   id: string;
@@ -17,24 +19,24 @@ export type Folder = {
 
 type FolderSidebarProps = {
   folders: Folder[];
-  specialFolders?: Folder[];
   tags: string[];
   selectedFolderId: string | null;
   selectedTag: string | null;
   onSelectFolder: (id: string | null) => void;
   onSelectTag: (tag: string | null) => void;
   onAddFolder: (name: string) => void;
+  onClose?: () => void;
 };
 
 export function FolderSidebar({
   folders,
-  specialFolders = [],
   tags,
   selectedFolderId,
   selectedTag,
   onSelectFolder,
   onSelectTag,
   onAddFolder,
+  onClose,
 }: FolderSidebarProps) {
   const [isAdding, setIsAdding] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
@@ -67,37 +69,53 @@ export function FolderSidebar({
   const handleSelectAll = () => {
     onSelectFolder(null);
     onSelectTag(null);
+    onClose?.();
   };
   
-  const isVaultPage = pathname === '/vault';
+  const handleFolderSelect = (id: string | null) => {
+    onSelectFolder(id);
+    onClose?.();
+  }
 
-  return (
-    <div className="border-r bg-muted/40 p-4 flex flex-col gap-4">
+  const handleTagSelect = (tag: string | null) => {
+    onSelectTag(tag);
+    onClose?.();
+  }
+
+  const specialFolders: Folder[] = [
+    { id: "favorites", name: "Favorites", icon: Star },
+    { id: "trash", name: "Trash", icon: Trash2 },
+  ];
+  
+  const isVaultPage = pathname === '/vault' || pathname === '/dashboard';
+
+  const content = (
+    <>
       <nav className="flex flex-col gap-1">
         <Button
             variant={pathname === "/dashboard" ? "secondary" : "ghost"}
-            className="w-full justify-start"
+            className="w-full justify-start text-base"
             asChild
           >
-            <Link href="/dashboard">
-              <LayoutDashboard className="mr-2" />
+            <Link href="/dashboard" onClick={onClose}>
+              <LayoutDashboard className="mr-3 h-5 w-5" />
               Dashboard
             </Link>
         </Button>
         <Button
-          variant={isVaultPage && selectedFolderId === null && selectedTag === null ? "secondary" : "ghost"}
-          className="w-full justify-start"
+          variant={pathname === '/vault' && selectedFolderId === null && selectedTag === null ? "secondary" : "ghost"}
+          className="w-full justify-start text-base"
           onClick={handleSelectAll}
-          asChild={!isVaultPage}
+          asChild={pathname !== '/vault'}
         >
-          {isVaultPage ? (
+          {pathname === '/vault' ? (
             <>
-              <FolderIcon className="mr-2" />
+              <FolderIcon className="mr-3 h-5 w-5" />
               All Passwords
             </>
           ) : (
-            <Link href="/vault">
-              <FolderIcon className="mr-2" />
+            <Link href="/vault" onClick={onClose}>
+              <FolderIcon className="mr-3 h-5 w-5" />
               All Passwords
             </Link>
           )}
@@ -106,16 +124,16 @@ export function FolderSidebar({
 
       <Separator />
       
-      <h2 className="text-lg font-semibold tracking-tight -mb-2">Folders</h2>
+      <h2 className="text-lg font-semibold tracking-tight -mb-2 px-2">Folders</h2>
       <nav className="flex flex-col gap-1">
         {folders.map((folder) => (
           <Button
             key={folder.id}
-            variant={isVaultPage && selectedFolderId === folder.id ? "secondary" : "ghost"}
-            className="w-full justify-start"
-            onClick={() => onSelectFolder(folder.id)}
+            variant={pathname === '/vault' && selectedFolderId === folder.id ? "secondary" : "ghost"}
+            className="w-full justify-start text-base"
+            onClick={() => handleFolderSelect(folder.id)}
           >
-            <FolderIcon className="mr-2" />
+            <FolderIcon className="mr-3 h-5 w-5" />
             {folder.name}
           </Button>
         ))}
@@ -124,16 +142,16 @@ export function FolderSidebar({
       {tags.length > 0 && (
         <>
           <Separator />
-          <h2 className="text-lg font-semibold tracking-tight -mb-2">Tags</h2>
+          <h2 className="text-lg font-semibold tracking-tight -mb-2 px-2">Tags</h2>
           <nav className="flex flex-col gap-1">
             {tags.map((tag) => (
               <Button
                 key={tag}
-                variant={isVaultPage && selectedTag === tag ? "secondary" : "ghost"}
-                className="w-full justify-start"
-                onClick={() => onSelectTag(tag)}
+                variant={pathname === '/vault' && selectedTag === tag ? "secondary" : "ghost"}
+                className="w-full justify-start text-base"
+                onClick={() => handleTagSelect(tag)}
               >
-                <Tag className="mr-2" />
+                <Tag className="mr-3 h-5 w-5" />
                 {tag}
               </Button>
             ))}
@@ -150,11 +168,11 @@ export function FolderSidebar({
               return (
                 <Button
                   key={folder.id}
-                  variant={isVaultPage && selectedFolderId === folder.id ? "secondary" : "ghost"}
-                  className="w-full justify-start"
-                  onClick={() => onSelectFolder(folder.id)}
+                  variant={pathname === '/vault' && selectedFolderId === folder.id ? "secondary" : "ghost"}
+                  className="w-full justify-start text-base"
+                  onClick={() => handleFolderSelect(folder.id)}
                 >
-                  <Icon className="mr-2" />
+                  <Icon className="mr-3 h-5 w-5" />
                   {folder.name}
                 </Button>
               );
@@ -191,11 +209,35 @@ export function FolderSidebar({
           </div>
         ) : (
           <Button variant="outline" className="w-full" onClick={handleAddClick}>
-            <Plus className="mr-2" />
+            <Plus className="mr-2 h-5 w-5" />
             New Folder
           </Button>
         )}
       </div>
+    </>
+  );
+
+  return (
+    <div className="border-r bg-muted/40 p-4 flex flex-col gap-4 h-full">
+      {content}
     </div>
   );
+}
+
+type MobileSidebarProps = {
+    isOpen: boolean;
+    onOpenChange: (isOpen: boolean) => void;
+} & Omit<FolderSidebarProps, 'onClose'>;
+
+export function MobileSidebar({ isOpen, onOpenChange, ...props}: MobileSidebarProps) {
+    return (
+        <Sheet open={isOpen} onOpenChange={onOpenChange}>
+            <SheetContent side="left" className="p-0 w-full max-w-xs">
+                <div className="p-4 flex flex-col gap-4 h-full">
+                    <h2 className="text-2xl font-bold tracking-tight px-2">CipherVault</h2>
+                    <FolderSidebar {...props} onClose={() => onOpenChange(false)} />
+                </div>
+            </SheetContent>
+        </Sheet>
+    )
 }
