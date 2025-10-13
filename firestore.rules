@@ -2,87 +2,80 @@
  * @fileoverview Firestore Security Rules for CipherVault.
  *
  * Core Philosophy:
- * This ruleset enforces a strict user-ownership model. All data is nested under
- * /users/{userId}, and only the authenticated user can access their own data.
+ * This ruleset enforces a strict user-ownership model based on the document path.
+ * The path /users/{userId} is the single source of truth for ownership.
+ * We do not rely on data fields within the document for authorization.
  *
  * Data Structure:
- * The data model follows a hierarchical structure:
- * /users/{userId} - User profiles
- * /users/{userId}/vaults/{vaultId} - Password vaults owned by the user
- * /users/{userId}/vaults/{vaultId}/credentials/{credentialId} - Credentials within a vault
+ * - /users/{userId}: Stores user profile information, owned exclusively by the user.
+ * - /users/{userId}/vaults/{vaultId}: Stores password vaults, owned exclusively by the user.
+ * - /users/{userId}/vaults/{vaultId}/credentials/{credentialId}: Stores individual credentials within a vault, owned exclusively by the user.
  *
  * Key Security Decisions:
- * - User listing is disallowed for other users, but a user can list to find their own document.
- * - Path-based ownership is strictly enforced. Every document is owned by the user whose ID is in the path.
- * - Data validation is relaxed to allow for rapid prototyping, focusing only on authorization-critical fields.
- * - User must pass their `userId` in both path and document `userId` field to prevent spoofing. This is only done during creation and cannot be changed after.
+ * - User listing is disallowed.
+ * - All data is private and requires authentication.
+ * - Data consistency between path and document data is enforced on creation and updates.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Checks if the request is authenticated.
-     * @returns {boolean} True if the request is authenticated, false otherwise.
+     * @description Checks if the user is signed in.
+     * @return {bool} True if the user is signed in, false otherwise.
      */
     function isSignedIn() {
       return request.auth != null;
     }
 
     /**
-     * @description Checks if the authenticated user ID matches the provided user ID.
-     * @param {string} userId The user ID to compare against.
-     * @returns {boolean} True if the user is the owner, false otherwise.
+     * @description Checks if the user is the owner of the resource based on the userId.
+     * @param {string} userId The user ID to compare against the request's auth UID.
+     * @return {bool} True if the user is the owner, false otherwise.
      */
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
     /**
-     * @description Checks if the authenticated user is the existing owner of the resource.
-     * @param {string} userId The user ID to compare against.
-     * @returns {boolean} True if the user is the existing owner, false otherwise.
+     * @description Checks if the user is the owner of the resource and the resource exists.
+     *              This is used for update and delete operations to prevent acting on non-existent documents.
+     * @param {string} userId The user ID to compare against the request's auth UID.
+     * @return {bool} True if the user is the owner and the resource exists, false otherwise.
      */
     function isExistingOwner(userId) {
         return isOwner(userId) && resource != null;
     }
 
     /**
-     * @description Rules for the /users/{userId} collection.
+     * @description Security rules for user profiles.
      * @path /users/{userId}
-     * @allow (get) Authenticated user can get their own profile.
-     * @allow (list) Authenticated user can list to find their own profile.
-     * @allow (create) Authenticated user can create their own profile, with matching user ID in the path and document.
-     * @allow (update) Authenticated user can update their profile, provided they own it and the user ID in the document is immutable.
-     * @allow (delete) Authenticated user can delete their own profile.
-     * @deny (get) Another user tries to get a profile.
-     * @deny (create) Unauthenticated user tries to create a profile.
-     * @deny (update) Another user tries to update the profile.
-     * @deny (delete) Another user tries to delete the profile.
-     * @principle Enforces document ownership for writes and reads.
+     * @allow (get, list) User 'A' can read their own profile.
+     * @allow (create) User 'A' can create their own profile if the user ID in the data matches the path.
+     * @allow (update, delete) User 'A' can update or delete their own profile.
+     * @deny (get, list) User 'A' cannot read User 'B' profile.
+     * @deny (create) User 'A' cannot create User 'B' profile.
+     * @deny (update, delete) User 'A' cannot update or delete User 'B' profile.
+     * @principle Enforces document ownership for writes.
      */
     match /users/{userId} {
       allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
+      allow list: if false; // User listing is not permitted.
       allow create: if isOwner(userId) && request.resource.data.id == userId;
       allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
       allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Rules for the /users/{userId}/vaults/{vaultId} collection.
+     * @description Security rules for vaults under a user.
      * @path /users/{userId}/vaults/{vaultId}
-     * @allow (get) Authenticated user can get their own vault.
-     * @allow (list) Authenticated user can list their own vaults.
-     * @allow (create) Authenticated user can create their own vault, with matching user ID in the path and document.
-     * @allow (update) Authenticated user can update their vault, provided they own it and the user ID in the document is immutable.
-     * @allow (delete) Authenticated user can delete their own vault.
-     * @deny (get) Another user tries to get a vault.
-     * @deny (list) Another user tries to list the vaults.
-     * @deny (create) Unauthenticated user tries to create a vault.
-     * @deny (update) Another user tries to update the vault.
-     * @deny (delete) Another user tries to delete the vault.
-     * @principle Restricts access to a user's own data tree.
+     * @allow (get, list) User 'A' can read their own vaults.
+     * @allow (create) User 'A' can create a vault under their user ID if the userId in the data matches the path.
+     * @allow (update, delete) User 'A' can update or delete their own vaults.
+     * @deny (get, list) User 'A' cannot read User 'B' vaults.
+     * @deny (create) User 'A' cannot create vaults under User 'B'.
+     * @deny (update, delete) User 'A' cannot update or delete User 'B' vaults.
+     * @principle Enforces document ownership for writes and validates relational integrity.
      */
     match /users/{userId}/vaults/{vaultId} {
       allow get: if isOwner(userId);
@@ -93,24 +86,20 @@ service cloud.firestore {
     }
 
     /**
-     * @description Rules for the /users/{userId}/vaults/{vaultId}/credentials/{credentialId} collection.
+     * @description Security rules for credentials within vaults.
      * @path /users/{userId}/vaults/{vaultId}/credentials/{credentialId}
-     * @allow (get) Authenticated user can get their own credential.
-     * @allow (list) Authenticated user can list their own credentials.
-     * @allow (create) Authenticated user can create their own credential, with matching user ID in the path.
-     * @allow (update) Authenticated user can update their credential.
-     * @allow (delete) Authenticated user can delete their own credential.
-     * @deny (get) Another user tries to get a credential.
-     * @deny (list) Another user tries to list the credentials.
-     * @deny (create) Unauthenticated user tries to create a credential.
-     * @deny (update) Another user tries to update the credential.
-     * @deny (delete) Another user tries to delete the credential.
-     * @principle Enforces path-based ownership to secure credential data.
+     * @allow (get, list) User 'A' can read their own credentials within their vaults.
+     * @allow (create) User 'A' can create a credential within their vault if the vaultId in the data matches the path.
+     * @allow (update, delete) User 'A' can update or delete their own credentials.
+     * @deny (get, list) User 'A' cannot read User 'B' credentials.
+     * @deny (create) User 'A' cannot create credentials under User 'B' vaults.
+     * @deny (update, delete) User 'A' cannot update or delete User 'B' credentials.
+     * @principle Enforces document ownership for writes and validates relational integrity.
      */
     match /users/{userId}/vaults/{vaultId}/credentials/{credentialId} {
       allow get: if isOwner(userId);
       allow list: if isOwner(userId);
-      allow create: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.vaultId == vaultId;
       allow update: if isExistingOwner(userId);
       allow delete: if isExistingOwner(userId);
     }
