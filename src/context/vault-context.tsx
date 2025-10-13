@@ -53,14 +53,30 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
 
-  // Memoize the collection reference
+  // Memoize the collection reference for the user's credentials
   const credentialsCol = useMemoFirebase(() => {
     if (!user) return null;
+    // This is a direct reference to the subcollection, which is correct.
     return collection(firestore, 'users', user.uid, 'credentials');
   }, [firestore, user]);
 
   // Fetch passwords using the useCollection hook
   const { data: passwords, isLoading: isLoadingPasswords } = useCollection<PasswordEntry>(credentialsCol);
+
+  useEffect(() => {
+    if (user) {
+      const userDocRef = doc(firestore, 'users', user.uid);
+      const dataToSave = {
+        email: user.email,
+        updatedAt: serverTimestamp(),
+      };
+      // Create or update the user document when the user logs in.
+      // This is a 'get' then 'write' operation, which is allowed by the rules.
+      setDoc(userDocRef, dataToSave, { merge: true }).catch(err => {
+          console.error("Error creating/updating user document:", err);
+      });
+    }
+  }, [user, firestore]);
 
   const addFolder = (folderName: string) => {
     const newFolder = { id: String(Date.now()), name: folderName };
