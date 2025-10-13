@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Input } from "./ui/input";
 import { Separator } from "./ui/separator";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 
 export type Folder = {
   id: string;
@@ -69,7 +69,11 @@ export function FolderSidebar({
   const handleSelectAll = () => {
     onSelectFolder(null);
     onSelectTag(null);
-    onClose?.();
+    if (pathname !== '/vault') {
+      // This will be handled by the Link component's onClick if it's not the vault page
+    } else {
+       onClose?.();
+    }
   };
   
   const handleFolderSelect = (id: string | null) => {
@@ -87,32 +91,32 @@ export function FolderSidebar({
     { id: "trash", name: "Trash", icon: Trash2 },
   ];
   
-  const isVaultPage = pathname === '/vault' || pathname === '/dashboard';
+  const isVaultPage = pathname === '/vault';
 
   const content = (
     <>
       <nav className="flex flex-col gap-1">
         <Button
-            variant={pathname === "/dashboard" ? "secondary" : "ghost"}
-            className="w-full justify-start text-base"
-            asChild
-          >
-            <Link href="/dashboard" onClick={onClose}>
-              <LayoutDashboard className="mr-3 h-5 w-5" />
-              Dashboard
-            </Link>
+          variant={pathname === "/dashboard" ? "secondary" : "ghost"}
+          className="w-full justify-start text-base"
+          asChild
+        >
+          <Link href="/dashboard" onClick={onClose}>
+            <LayoutDashboard className="mr-3 h-5 w-5" />
+            Dashboard
+          </Link>
         </Button>
         <Button
-          variant={pathname === '/vault' && selectedFolderId === null && selectedTag === null ? "secondary" : "ghost"}
+          variant={isVaultPage && selectedFolderId === null && selectedTag === null ? "secondary" : "ghost"}
           className="w-full justify-start text-base"
           onClick={handleSelectAll}
-          asChild={pathname !== '/vault'}
+          asChild={!isVaultPage}
         >
-          {pathname === '/vault' ? (
-            <>
+          {isVaultPage ? (
+             <div className="flex items-center w-full">
               <FolderIcon className="mr-3 h-5 w-5" />
               All Passwords
-            </>
+            </div>
           ) : (
             <Link href="/vault" onClick={onClose}>
               <FolderIcon className="mr-3 h-5 w-5" />
@@ -218,7 +222,7 @@ export function FolderSidebar({
   );
 
   return (
-    <div className="border-r bg-muted/40 p-4 flex flex-col gap-4 h-full">
+    <div className="border-r bg-muted/40 p-4 flex flex-col gap-4 h-full overflow-y-auto">
       {content}
     </div>
   );
@@ -232,11 +236,12 @@ type MobileSidebarProps = {
 export function MobileSidebar({ isOpen, onOpenChange, ...props}: MobileSidebarProps) {
     return (
         <Sheet open={isOpen} onOpenChange={onOpenChange}>
-            <SheetContent side="left" className="p-0 w-full max-w-xs">
+            <SheetContent side="left" className="p-0 w-full max-w-xs flex flex-col">
+                 <SheetHeader className="p-4 border-b">
+                    <SheetTitle className="text-2xl font-bold tracking-tight text-left">CipherVault</SheetTitle>
+                    <SheetDescription className="text-left">A clean and secure password manager.</SheetDescription>
+                </SheetHeader>
                 <div className="p-4 flex flex-col gap-4 h-full">
-                    <SheetHeader className="px-2">
-                      <SheetTitle className="text-2xl font-bold tracking-tight text-left">CipherVault</SheetTitle>
-                    </SheetHeader>
                     <FolderSidebar {...props} onClose={() => onOpenChange(false)} />
                 </div>
             </SheetContent>
