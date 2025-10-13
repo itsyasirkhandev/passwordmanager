@@ -23,6 +23,10 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { PasswordGenerator } from "@/components/password-generator";
+import { KeyRound } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+
 
 const passwordSchema = z.object({
   serviceName: z.string().min(1, "Service name is required."),
@@ -81,9 +85,13 @@ export function PasswordFormDialog({
   
   const isEditing = !!initialData;
 
+  const handleUsePassword = (password: string) => {
+    form.setValue("password", password, { shouldValidate: true });
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[480px]">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{isEditing ? "Edit Password" : "Add New Password"}</DialogTitle>
           <DialogDescription>
@@ -93,7 +101,7 @@ export function PasswordFormDialog({
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4 py-4">
+          <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
             <FormField
               control={form.control}
               name="serviceName"
@@ -139,9 +147,21 @@ export function PasswordFormDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Password</FormLabel>
-                  <FormControl>
-                    <Input type="password" placeholder="••••••••••••" {...field} />
-                  </FormControl>
+                  <div className="flex gap-2">
+                    <FormControl>
+                      <Input type="password" placeholder="••••••••••••" {...field} />
+                    </FormControl>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" size="icon" type="button" aria-label="Open password generator">
+                           <KeyRound />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-80">
+                         <PasswordGenerator onUsePassword={handleUsePassword} />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                   <FormMessage />
                 </FormItem>
               )}
@@ -164,6 +184,7 @@ export function PasswordFormDialog({
               )}
             />
             <DialogFooter>
+               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
               <Button type="submit">{isEditing ? "Save Changes" : "Save Password"}</Button>
             </DialogFooter>
           </form>
