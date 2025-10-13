@@ -205,26 +205,24 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     const docRef = id ? doc(firestore, collectionPath, id) : doc(collection(firestore, collectionPath));
     
     const now = Timestamp.now();
-    
-    // Optimistic update
-    const optimisticEntry: PasswordEntry = {
-      ...(id ? passwords.find(p => p.id === id)! : { id: docRef.id, createdAt: now, userId: user.uid }),
-      ...data,
-      updatedAt: now,
-    };
-
     const originalPasswords = passwords;
-    setPasswords(prev => {
-        const existingIndex = prev.findIndex(p => p.id === optimisticEntry.id);
-        if (existingIndex > -1) {
-            const updatedPasswords = [...prev];
-            updatedPasswords[existingIndex] = optimisticEntry;
-            return updatedPasswords;
-        }
-        return [...prev, optimisticEntry];
-    });
 
-
+    // Optimistic update
+    if (id) {
+        // Update existing password
+        setPasswords(prev => prev.map(p => p.id === id ? { ...p, ...data, updatedAt: now } : p));
+    } else {
+        // Add new password
+        const newPassword: PasswordEntry = {
+            ...data,
+            id: docRef.id,
+            createdAt: now,
+            updatedAt: now,
+            userId: user.uid,
+        };
+        setPasswords(prev => [...prev, newPassword]);
+    }
+    
     const dataToSave = {
       ...data,
       password: encryptPassword(data.password), // Encrypt for Firestore
