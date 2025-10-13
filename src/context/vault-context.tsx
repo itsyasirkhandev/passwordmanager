@@ -332,7 +332,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     const passwordToToggle = passwords.find(p => p.id === id);
     if (!passwordToToggle || !passwordToToggle.folderId) return;
 
-    const originalPasswords = passwords;
+    const originalPasswords = [...passwords];
     const updatedEntry = { ...passwordToToggle, isFavorite: !isFavorite, updatedAt: Timestamp.now() };
 
     // Optimistic update
