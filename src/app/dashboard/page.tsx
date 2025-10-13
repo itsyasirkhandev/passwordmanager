@@ -9,6 +9,7 @@ import { StrengthChart } from "./strength-chart";
 import { calculatePasswordStrength } from "@/lib/password-strength";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export default function DashboardPage() {
   const { passwords, folders, addFolder, selectFolder, selectTag } = useVault();
