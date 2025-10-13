@@ -1,5 +1,6 @@
 import { Lock } from "lucide-react";
 import { CipherVaultLogo } from "@/components/logo";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export default function Header() {
   return (
@@ -12,7 +13,10 @@ export default function Header() {
               CipherVault
             </h1>
           </div>
-          <Lock className="h-6 w-6 text-muted-foreground" />
+          <div className="flex items-center gap-4">
+            <ThemeToggle />
+            <Lock className="h-6 w-6 text-muted-foreground" />
+          </div>
         </div>
       </div>
     </header>

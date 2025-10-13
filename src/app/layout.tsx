@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { cn } from "@/lib/utils";
 import { VaultProvider } from "@/context/vault-context";
+import { ThemeProvider } from "@/components/theme-provider";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -28,10 +29,17 @@ export default function RootLayout({
         />
       </head>
       <body className={cn("font-body antialiased", inter.variable)}>
-        <VaultProvider>
-            {children}
-        </VaultProvider>
-        <Toaster />
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <VaultProvider>
+              {children}
+          </VaultProvider>
+          <Toaster />
+        </ThemeProvider>
       </body>
     </html>
   );
