@@ -13,6 +13,7 @@ import {
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PasswordFormDialog, type PasswordEntry, type PasswordFormValues } from "./password-form-dialog";
+import { PasswordDetailSheet } from "./password-detail-sheet";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { type Folder } from "@/components/folder-sidebar";
@@ -62,6 +63,7 @@ export default function PasswordList({ passwords, setPasswords, selectedFolderId
   const [revealedPasswords, setRevealedPasswords] = useState<Record<string, boolean>>({});
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingPassword, setEditingPassword] = useState<PasswordEntry | null>(null);
+  const [viewingPassword, setViewingPassword] = useState<PasswordEntry | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -81,8 +83,10 @@ export default function PasswordList({ passwords, setPasswords, selectedFolderId
         filtered = filtered.filter(p => p.isFavorite);
     }
     
-    if (selectedFolderId && selectedFolderId !== 'trash') {
+    if (selectedFolderId && selectedFolderId !== 'trash' && selectedFolderId !== 'favorites') {
       filtered = filtered.filter(p => p.folderId === selectedFolderId);
+    } else if (selectedFolderId === 'favorites') {
+        filtered = filtered.filter(p => p.isFavorite);
     } else if (selectedTag) {
       filtered = filtered.filter(p => p.tags?.includes(selectedTag));
     }
@@ -121,6 +125,13 @@ export default function PasswordList({ passwords, setPasswords, selectedFolderId
   useEffect(() => {
     setSelectedIds([]);
   }, [selectedFolderId, selectedTag, searchQuery, sortOption, activeFilter]);
+  
+  // Close detail view if the item is no longer in the filtered list
+  useEffect(() => {
+    if (viewingPassword && !filteredAndSortedPasswords.find(p => p.id === viewingPassword.id)) {
+      setViewingPassword(null);
+    }
+  }, [viewingPassword, filteredAndSortedPasswords]);
 
   const handleCopy = (text: string, fieldId: string) => {
     navigator.clipboard.writeText(text).then(
@@ -148,12 +159,19 @@ export default function PasswordList({ passwords, setPasswords, selectedFolderId
   const handleOpenEditForm = (password: PasswordEntry) => {
     setEditingPassword(password);
     setIsFormOpen(true);
+    setViewingPassword(null);
   }
   
+  const handleOpenDetailView = (password: PasswordEntry) => {
+    setViewingPassword(password);
+  }
+
   const handleSubmitPassword = (data: PasswordFormValues) => {
     const now = new Date();
     if (editingPassword) {
-      setPasswords(passwords.map(p => p.id === editingPassword.id ? { ...editingPassword, ...data, updatedAt: now } : p));
+      const updatedPassword = { ...editingPassword, ...data, updatedAt: now };
+      setPasswords(passwords.map(p => p.id === editingPassword.id ? updatedPassword : p));
+      setViewingPassword(updatedPassword); // Update detail view if open
       toast({ title: "Success", description: "Password updated." });
     } else {
       const newPassword: PasswordEntry = { ...data, id: String(Date.now()), createdAt: now, updatedAt: now };
@@ -197,6 +215,10 @@ export default function PasswordList({ passwords, setPasswords, selectedFolderId
         toast({ title: `${ids.length} item(s) moved to trash.` });
     }
     
+    if (viewingPassword && ids.includes(viewingPassword.id)) {
+      setViewingPassword(null);
+    }
+    
     setSelectedIds([]);
     setDeleteConfirmation(null);
   };
@@ -210,7 +232,11 @@ export default function PasswordList({ passwords, setPasswords, selectedFolderId
 
   const toggleFavorite = (id: string) => {
     const now = new Date();
-    setPasswords(passwords.map(p => p.id === id ? { ...p, isFavorite: !p.isFavorite, updatedAt: now } : p));
+    const newPasswords = passwords.map(p => p.id === id ? { ...p, isFavorite: !p.isFavorite, updatedAt: now } : p);
+    setPasswords(newPasswords);
+    if (viewingPassword?.id === id) {
+        setViewingPassword(newPasswords.find(p => p.id === id) || null);
+    }
   };
 
   const clearFilters = () => {
@@ -245,6 +271,7 @@ export default function PasswordList({ passwords, setPasswords, selectedFolderId
   
   const getTitle = () => {
     if (isTrashView) return "Trash";
+    if (selectedFolderId === 'favorites') return "Favorites";
     if (selectedTag) return `Tagged: "${selectedTag}"`;
     if (currentFolder) return currentFolder.name;
     return "All Passwords";
@@ -372,15 +399,20 @@ export default function PasswordList({ passwords, setPasswords, selectedFolderId
               </TableHeader>
               <TableBody>
                 {filteredAndSortedPasswords.map((entry) => (
-                  <TableRow key={entry.id} data-state={selectedIds.includes(entry.id) && "selected"}>
-                    <TableCell>
+                  <TableRow 
+                    key={entry.id} 
+                    data-state={selectedIds.includes(entry.id) && "selected"}
+                    className="cursor-pointer"
+                    onClick={() => handleOpenDetailView(entry)}
+                  >
+                    <TableCell onClick={(e) => e.stopPropagation()}>
                          <Checkbox
                             checked={selectedIds.includes(entry.id)}
                             onCheckedChange={(checked) => handleSelect(entry.id, Boolean(checked))}
                             aria-label={`Select ${entry.serviceName}`}
                         />
                     </TableCell>
-                     <TableCell>
+                     <TableCell onClick={(e) => e.stopPropagation()}>
                         <Button
                             variant="ghost"
                             size="icon"
@@ -411,7 +443,7 @@ export default function PasswordList({ passwords, setPasswords, selectedFolderId
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleCopy(entry.username, `${entry.id}-username`)}
+                          onClick={(e) => { e.stopPropagation(); handleCopy(entry.username, `${entry.id}-username`); }}
                           aria-label="Copy username"
                         >
                           {copiedField === `${entry.id}-username` ? <Check className="h-4 w-4 text-primary" /> : <ClipboardCopy className="h-4 w-4" />}
@@ -427,16 +459,16 @@ export default function PasswordList({ passwords, setPasswords, selectedFolderId
                            {!isTrashView && <PasswordStrengthPill password={entry.password} />}
                          </div>
                         <div className="flex items-center">
-                          <Button variant="ghost" size="icon" onClick={() => togglePasswordVisibility(entry.id)} aria-label={revealedPasswords[entry.id] ? "Hide password" : "Show password"}>
+                          <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); togglePasswordVisibility(entry.id); }} aria-label={revealedPasswords[entry.id] ? "Hide password" : "Show password"}>
                             {revealedPasswords[entry.id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                           </Button>
-                           <Button variant="ghost" size="icon" onClick={() => handleCopy(entry.password, `${entry.id}-password`)} aria-label="Copy password">
+                           <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleCopy(entry.password, `${entry.id}-password`); }} aria-label="Copy password">
                              {copiedField === `${entry.id}-password` ? <Check className="h-4 w-4 text-primary" /> : <ClipboardCopy className="h-4 w-4" />}
                            </Button>
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="icon">
@@ -496,7 +528,7 @@ export default function PasswordList({ passwords, setPasswords, selectedFolderId
               ) : activeFilter !== 'all' ? (
                 <>
                     <p className="font-semibold text-lg">No items match your filter</p>
-                    <p>There are no {activeFilter} in this view.</p>
+                    <p>There are no {activeFilter === 'favorites' ? 'favorites' : ''} in this view.</p>
                     <Button variant="link" onClick={() => setActiveFilter('all')} className="mt-2">Show all items</Button>
                 </>
               ) : (
@@ -516,6 +548,17 @@ export default function PasswordList({ passwords, setPasswords, selectedFolderId
         initialData={editingPassword}
         folders={folders}
         defaultFolderId={selectedFolderId}
+      />
+      <PasswordDetailSheet
+        entry={viewingPassword}
+        isOpen={!!viewingPassword}
+        onOpenChange={(open) => !open && setViewingPassword(null)}
+        onEdit={handleOpenEditForm}
+        onDelete={(id) => handleDeleteRequest([id], isTrashView)}
+        onToggleFavorite={toggleFavorite}
+        onCopy={handleCopy}
+        isTrashView={isTrashView}
+        onRestore={id => handleRestore([id])}
       />
        <AlertDialog open={!!deleteConfirmation} onOpenChange={(open) => !open && setDeleteConfirmation(null)}>
         <AlertDialogContent>
