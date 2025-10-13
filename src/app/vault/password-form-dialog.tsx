@@ -29,7 +29,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Folder } from "@/components/folder-sidebar";
 import { TagInput } from "@/components/tag-input";
-
+import { PasswordStrengthIndicator } from "@/components/password-strength-indicator";
 
 const passwordSchema = z.object({
   serviceName: z.string().min(1, "Service name is required."),
@@ -109,6 +109,8 @@ export function PasswordFormDialog({
   const handleUsePassword = (password: string) => {
     form.setValue("password", password, { shouldValidate: true });
   };
+  
+  const passwordValue = form.watch("password");
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -184,6 +186,7 @@ export function PasswordFormDialog({
                     </Popover>
                   </div>
                   <FormMessage />
+                  <PasswordStrengthIndicator password={passwordValue} />
                 </FormItem>
               )}
             />

@@ -42,6 +42,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { PasswordStrengthPill } from "@/components/password-strength-indicator";
+
 
 export type { PasswordEntry };
 
@@ -418,9 +420,12 @@ export default function PasswordList({ passwords, setPasswords, selectedFolderId
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center justify-between gap-2">
-                        <span className="font-mono flex-1">
-                          {revealedPasswords[entry.id] ? entry.password : "••••••••••••"}
-                        </span>
+                         <div className="flex flex-col gap-1.5 flex-1">
+                           <span className="font-mono">
+                             {revealedPasswords[entry.id] ? entry.password : "••••••••••••"}
+                           </span>
+                           {!isTrashView && <PasswordStrengthPill password={entry.password} />}
+                         </div>
                         <div className="flex items-center">
                           <Button variant="ghost" size="icon" onClick={() => togglePasswordVisibility(entry.id)} aria-label={revealedPasswords[entry.id] ? "Hide password" : "Show password"}>
                             {revealedPasswords[entry.id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
