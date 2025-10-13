@@ -130,7 +130,7 @@ export function FolderSidebar({
       
       <h2 className="text-lg font-semibold tracking-tight -mb-2 px-2">Folders</h2>
       <nav className="flex flex-col gap-1">
-        {folders.map((folder) => (
+        {folders && folders.map((folder) => (
           <Button
             key={folder.id}
             variant={pathname === '/vault' && selectedFolderId === folder.id ? "secondary" : "ghost"}
