@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -25,7 +25,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { PasswordGenerator } from "@/components/password-generator";
-import { KeyRound } from "lucide-react";
+import { KeyRound, Loader } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Folder } from "@/components/folder-sidebar";
@@ -56,7 +56,7 @@ export type PasswordFormValues = z.infer<typeof passwordSchema>;
 type PasswordFormDialogProps = {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
-  onSubmit: (data: PasswordFormValues) => void;
+  onSubmit: (data: PasswordFormValues) => Promise<void>;
   initialData?: PasswordEntry | null;
   folders: Folder[];
   defaultFolderId?: string | null;
@@ -70,6 +70,7 @@ export function PasswordFormDialog({
   folders,
   defaultFolderId
 }: PasswordFormDialogProps) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const form = useForm<PasswordFormValues>({
     resolver: zodResolver(passwordSchema),
     defaultValues: {
@@ -107,12 +108,14 @@ export function PasswordFormDialog({
     }
   }, [isOpen, initialData, form, defaultFolderId, folders]);
 
-  const handleFormSubmit = (values: PasswordFormValues) => {
+  const handleFormSubmit = async (values: PasswordFormValues) => {
+    setIsSubmitting(true);
     const dataToSubmit = {
         ...values,
         folderId: values.folderId === 'none' ? undefined : values.folderId
     }
-    onSubmit(dataToSubmit);
+    await onSubmit(dataToSubmit);
+    setIsSubmitting(false);
     onOpenChange(false);
   };
   
@@ -265,8 +268,11 @@ export function PasswordFormDialog({
               )}
             />
             <DialogFooter className="pt-4 gap-2 sm:gap-0">
-               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-              <Button type="submit">{isEditing ? "Save Changes" : "Save Password"}</Button>
+               <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>Cancel</Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting && <Loader className="mr-2 animate-spin" />}
+                {isEditing ? "Save Changes" : "Save Password"}
+              </Button>
             </DialogFooter>
           </form>
         </Form>

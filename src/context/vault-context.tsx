@@ -74,7 +74,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
         const permissionError = new FirestorePermissionError({
             path: defaultVaultRef.path,
             operation: 'create',
-            requestResourceData: { name: "Personal", userId: user.uid },
+            requestResourceData: { name: "Personal", userId: user.uid, folderId: defaultVaultRef.id },
         });
         errorEmitter.emit('permission-error', permissionError);
     }
@@ -138,7 +138,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
         const permissionError = new FirestorePermissionError({
             path: newFolderRef.path,
             operation: 'create',
-            requestResourceData: newFolder,
+            requestResourceData: {...newFolder, folderId: newFolderRef.id},
         });
         errorEmitter.emit('permission-error', permissionError);
      });
@@ -168,6 +168,23 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     const collectionPath = `users/${user.uid}/vaults/${data.folderId}/credentials`;
     const docRef = id ? doc(firestore, collectionPath, id) : doc(collection(firestore, collectionPath));
     
+    const now = Timestamp.now();
+    const optimisticEntry: PasswordEntry = {
+        ...(id ? passwords.find(p => p.id === id)! : { id: docRef.id, createdAt: now }),
+        ...data,
+        updatedAt: now,
+    };
+    
+    // Optimistic update
+    setPasswords(prev => {
+        const existing = prev.find(p => p.id === optimisticEntry.id);
+        if (existing) {
+            return prev.map(p => p.id === optimisticEntry.id ? optimisticEntry : p);
+        }
+        return [...prev, optimisticEntry];
+    });
+
+
     const dataToSave: Omit<PasswordEntry, 'id'| 'createdAt' | 'updatedAt' | 'deletedAt'> & { updatedAt: any, createdAt?: any } = {
       ...data,
       updatedAt: serverTimestamp(),
@@ -179,6 +196,8 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
           toast({ title: 'Success', description: id ? 'Password updated.' : 'Password added.' });
       })
       .catch(serverError => {
+          // Revert optimistic update on error
+          setPasswords(passwords); 
           const permissionError = new FirestorePermissionError({
               path: docRef.path,
               operation: id ? 'update' : 'create',

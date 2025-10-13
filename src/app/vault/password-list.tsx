@@ -524,7 +524,7 @@ export default function PasswordList({ selectedFolderId, selectedTag, folders }:
                               </DropdownMenu>
                           </div>
                         </div>
-                        <div className="text-muted-foreground text-sm pl-8 md:pl-0">{entry.username}</div>
+                        <div className="text-muted-foreground text-sm pl-8 md:pl-0 truncate">{entry.username}</div>
                          {entry.tags && entry.tags.length > 0 && !isTrashView && (
                             <div className="flex flex-wrap gap-1 mt-2 pl-8 md:pl-0">
                               {entry.tags.map(tag => (
@@ -535,7 +535,7 @@ export default function PasswordList({ selectedFolderId, selectedTag, folders }:
                       </TableCell>
                       <TableCell className="hidden md:table-cell">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="font-mono flex-1 truncate">
+                          <span className="font-mono flex-1 truncate max-w-xs">
                             {entry.username}
                           </span>
                           <Button

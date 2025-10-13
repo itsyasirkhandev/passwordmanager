@@ -2,104 +2,93 @@
  * @fileoverview Firestore Security Rules for CipherVault.
  *
  * Core Philosophy:
- * This ruleset enforces a strict user-ownership model. All data is nested under
- * /users/{userId}, ensuring that only the authenticated user can access their own
- * vaults and credentials.
+ * This ruleset enforces a strict user-ownership model. Each user has exclusive
+ * access to their own data, including vaults and credentials. No cross-user
+ * access is permitted.
  *
  * Data Structure:
- * The data is organized hierarchically: /users/{userId}/vaults/{vaultId}/credentials/{credentialId}.
- * This structure allows for simple, path-based authorization.
+ * The data is organized hierarchically under /users/{userId}, ensuring clear
+ * ownership and preventing unauthorized data access. Each user contains vaults,
+ * and each vault contains credentials.
  *
  * Key Security Decisions:
- * - Users can only create, read, update, and delete their own vaults and credentials.
- * - Listing other users' data is explicitly denied.
- * - The rules explicitly deny any unauthorized access attempts.
- *
- * Denormalization for Authorization:
- * The `userId` is embedded in the path for both vaults and credentials, allowing
- * for direct ownership checks without additional `get()` calls.
+ * - User listing is disallowed to prevent enumeration.
+ * - All write operations are validated to ensure the authenticated user owns
+ *   the data being modified.
+ * - These rules leverage path-based ownership, where the document path itself
+ *   determines authorization, simplifying the rules and improving performance.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Enforces user-ownership for user documents.
+     * @description Protects the /users collection. Only the user themselves can read or write their own document.
      * @path /users/{userId}
-     * @allow (create) User with ID 'user123' can create their own document.
-     *    Request: auth.uid = 'user123', resource.data.id = 'user123'
-     * @deny (create) User with ID 'user123' cannot create a document with ID 'otherUser'.
-     *    Reason: Mismatched user ID.
-     * @allow (get) User with ID 'user123' can read their own document.
-     * @allow (list) User with ID 'user123' can list their own documents.
-     * @allow (update) User with ID 'user123' can update their own document.
-     *    Request: auth.uid = 'user123', resource.data.id = 'user123', resource.data.email = 'newemail@example.com'
-     * @deny (update) User with ID 'user123' cannot update a document with ID 'otherUser'.
-     *    Reason: Mismatched user ID.
-     * @allow (delete) User with ID 'user123' can delete their own document.
-     * @principle Enforces document ownership for all operations.
+     * @allow (create) User with ID 'user123' can create their own user document.
+     * @deny (create) User with ID 'user456' cannot create a document under 'user123'.
+     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
      */
     match /users/{userId} {
-      function isOwner(userId) {
-        return request.auth != null && request.auth.uid == userId;
+      function isSignedIn() {
+        return request.auth != null;
       }
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.id == userId;
-      allow update: if isOwner(userId) && resource.data.id == userId;
-      allow delete: if isOwner(userId) && resource != null;
+
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+      allow get: if isSignedIn() && isOwner(userId);
+      allow list: if false;
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isOwner(userId);
+      allow delete: if isSignedIn() && isOwner(userId);
     }
 
     /**
-     * @description Enforces user-ownership for vaults.
+     * @description Protects the /users/{userId}/vaults collection. Only the owner can read and write vaults.
      * @path /users/{userId}/vaults/{vaultId}
-     * @allow (create) User with ID 'user123' can create a vault under their ID.
-     *    Request: auth.uid = 'user123'
-     * @deny (create) User with ID 'user123' cannot create a vault under 'otherUser'.
-     *    Reason: Mismatched user ID.
-     * @allow (get) User with ID 'user123' can read a vault under their ID.
-     * @allow (list) User with ID 'user123' can list vaults under their ID.
-     * @allow (update) User with ID 'user123' can update a vault under their ID.
-     * @deny (update) User with ID 'user123' cannot update a vault under 'otherUser'.
-     *    Reason: Mismatched user ID.
-     * @allow (delete) User with ID 'user123' can delete a vault under their ID.
-     * @principle Enforces document ownership for all operations.
+     * @allow (create) User with ID 'user123' can create a vault under their user document.
+     * @deny (update) User with ID 'user456' cannot update a vault under 'user123'.
+     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
      */
     match /users/{userId}/vaults/{vaultId} {
-      function isOwner(userId) {
-        return request.auth != null && request.auth.uid == userId;
+       function isSignedIn() {
+        return request.auth != null;
       }
-      allow get: if isOwner(userId);
+
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+      allow get: if isSignedIn() && isOwner(userId);
       allow list: if isOwner(userId);
-      allow create: if isOwner(userId);
-      allow update: if isOwner(userId) && resource != null;
-      allow delete: if isOwner(userId) && resource != null;
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isOwner(userId);
+      allow delete: if isSignedIn() && isOwner(userId);
     }
 
     /**
-     * @description Enforces user-ownership for credentials.
+     * @description Protects the /users/{userId}/vaults/{vaultId}/credentials collection. Only the owner can read and write credentials.
      * @path /users/{userId}/vaults/{vaultId}/credentials/{credentialId}
      * @allow (create) User with ID 'user123' can create a credential under their vault.
-     *    Request: auth.uid = 'user123'
-     * @deny (create) User with ID 'user123' cannot create a credential under 'otherUser's vault.
-     *    Reason: Mismatched user ID.
-     * @allow (get) User with ID 'user123' can read a credential under their vault.
-     * @allow (list) User with ID 'user123' can list credentials under their vault.
-     * @allow (update) User with ID 'user123' can update a credential under their vault.
-     * @deny (update) User with ID 'user123' cannot update a credential under 'otherUser's vault.
-     *    Reason: Mismatched user ID.
-     * @allow (delete) User with ID 'user123' can delete a credential under their vault.
-     * @principle Enforces document ownership for all operations.
+     * @deny (update) User with ID 'user456' cannot update a credential under 'user123'.
+     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
      */
     match /users/{userId}/vaults/{vaultId}/credentials/{credentialId} {
-      function isOwner(userId) {
-        return request.auth != null && request.auth.uid == userId;
+       function isSignedIn() {
+        return request.auth != null;
       }
-      allow get: if isOwner(userId);
+
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+      allow get: if isSignedIn() && isOwner(userId);
       allow list: if isOwner(userId);
-      allow create: if isOwner(userId);
-      allow update: if isOwner(userId) && resource != null;
-      allow delete: if isOwner(userId) && resource != null;
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isOwner(userId);
+      allow delete: if isSignedIn() && isOwner(userId);
     }
   }
 }
