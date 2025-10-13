@@ -11,17 +11,14 @@ import {
   updateDoc,
   deleteDoc,
   serverTimestamp,
+  query,
+  where,
+  getDocs,
+  Timestamp,
 } from 'firebase/firestore';
 import { type PasswordEntry, type PasswordFormValues } from '@/app/vault/password-form-dialog';
 import type { Folder } from '@/components/folder-sidebar';
 import { useToast } from '@/hooks/use-toast';
-
-// Static folders for now. This could be moved to Firestore in the future.
-const initialFolders: Folder[] = [
-  { id: "1", name: "Personal" },
-  { id: "2", name: "Work" },
-  { id: "3", name: "Banking" },
-];
 
 type VaultContextType = {
   passwords: PasswordEntry[];
@@ -46,46 +43,74 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
   const firestore = useFirestore();
   const { toast } = useToast();
   
-  const [folders, setFolders] = useState<Folder[]>(initialFolders);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
-  
+  const [passwords, setPasswords] = useState<PasswordEntry[]>([]);
+  const [isLoadingPasswords, setIsLoadingPasswords] = useState(true);
+
   const router = useRouter();
   const pathname = usePathname();
 
-  // Memoize the collection reference for the user's credentials
-  const credentialsCol = useMemoFirebase(() => {
+  // Fetch vaults (folders) from Firestore
+  const vaultsCol = useMemoFirebase(() => {
     if (!user) return null;
-    // This is a direct reference to the subcollection, which is correct.
-    return collection(firestore, 'users', user.uid, 'credentials');
+    return collection(firestore, 'users', user.uid, 'vaults');
   }, [firestore, user]);
-
-  // Fetch passwords using the useCollection hook
-  const { data: passwords, isLoading: isLoadingPasswords } = useCollection<PasswordEntry>(credentialsCol);
+  const { data: folders = [], isLoading: isLoadingFolders } = useCollection<Folder>(vaultsCol);
 
   useEffect(() => {
-    if (user) {
-      const userDocRef = doc(firestore, 'users', user.uid);
-      const dataToSave = {
-        email: user.email,
-        updatedAt: serverTimestamp(),
-      };
-      // Create or update the user document when the user logs in.
-      setDoc(userDocRef, dataToSave, { merge: true })
-        .catch(serverError => {
-            const permissionError = new FirestorePermissionError({
-                path: userDocRef.path,
-                operation: 'write',
-                requestResourceData: dataToSave,
-            });
-            errorEmitter.emit('permission-error', permissionError);
-        });
+    if (!user || !firestore || isLoadingFolders) {
+      setIsLoadingPasswords(!user || isLoadingFolders);
+      return;
     }
-  }, [user, firestore]);
+
+    // If there are no vaults, there are no passwords to fetch.
+    if (folders.length === 0) {
+        setPasswords([]);
+        setIsLoadingPasswords(false);
+        return;
+    }
+
+    setIsLoadingPasswords(true);
+    
+    // Create a query for each vault
+    const credentialQueries = folders.map(folder => 
+        getDocs(collection(firestore, 'users', user.uid, 'vaults', folder.id, 'credentials'))
+    );
+
+    Promise.all(credentialQueries)
+      .then(querySnapshots => {
+        const allPasswords = querySnapshots.flatMap(snapshot =>
+          snapshot.docs.map(doc => ({ ...doc.data() as Omit<PasswordEntry, 'id'>, id: doc.id } as PasswordEntry))
+        );
+        setPasswords(allPasswords);
+      })
+      .catch(error => {
+        console.error("Error fetching credentials from vaults:", error);
+        // We can't easily generate a permission error for a complex query like this,
+        // so a console error is acceptable here for now. A more advanced implementation
+        // could try to identify which vault failed.
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not load credentials.' });
+      })
+      .finally(() => {
+        setIsLoadingPasswords(false);
+      });
+
+  }, [user, firestore, folders, isLoadingFolders, toast]);
+
 
   const addFolder = (folderName: string) => {
-    const newFolder = { id: String(Date.now()), name: folderName };
-    setFolders((prev) => [...prev, newFolder]);
+     if (!user) return;
+     const newFolderRef = doc(collection(firestore, 'users', user.uid, 'vaults'));
+     const newFolder: Omit<Folder, 'id'> = { name: folderName };
+     setDoc(newFolderRef, newFolder).catch(serverError => {
+        const permissionError = new FirestorePermissionError({
+            path: newFolderRef.path,
+            operation: 'create',
+            requestResourceData: newFolder,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+     });
   };
   
   const selectFolder = (folderId: string | null) => {
@@ -105,13 +130,14 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addOrUpdatePassword = async (data: PasswordFormValues, id?: string) => {
-    if (!user) {
-      toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in.' });
+    if (!user || !data.folderId) {
+      toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in and select a vault.' });
       return;
     }
-    const docRef = id ? doc(firestore, 'users', user.uid, 'credentials', id) : doc(collection(firestore, 'users', user.uid, 'credentials'));
+    const collectionPath = `users/${user.uid}/vaults/${data.folderId}/credentials`;
+    const docRef = id ? doc(firestore, collectionPath, id) : doc(collection(firestore, collectionPath));
     
-    const dataToSave = {
+    const dataToSave: Omit<PasswordEntry, 'id' | 'createdAt' | 'updatedAt'> & { updatedAt: any, createdAt?: any } = {
       ...data,
       updatedAt: serverTimestamp(),
       ...(id ? {} : { createdAt: serverTimestamp() }),
@@ -133,7 +159,10 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
 
   const deletePassword = async (id: string, permanent = false) => {
     if (!user) return;
-    const docRef = doc(firestore, 'users', user.uid, 'credentials', id);
+    const passwordToDelete = passwords.find(p => p.id === id);
+    if (!passwordToDelete || !passwordToDelete.folderId) return;
+
+    const docRef = doc(firestore, 'users', user.uid, 'vaults', passwordToDelete.folderId, 'credentials', id);
 
     if (permanent) {
       deleteDoc(docRef)
@@ -166,7 +195,10 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
 
   const restorePassword = async (id: string) => {
     if (!user) return;
-    const docRef = doc(firestore, 'users', user.uid, 'credentials', id);
+    const passwordToRestore = passwords.find(p => p.id === id);
+    if (!passwordToRestore || !passwordToRestore.folderId) return;
+    
+    const docRef = doc(firestore, 'users', user.uid, 'vaults', passwordToRestore.folderId, 'credentials', id);
     const updateData = { deletedAt: null, updatedAt: serverTimestamp() };
     
     updateDoc(docRef, updateData)
@@ -185,7 +217,10 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
 
   const toggleFavorite = async (id: string, isFavorite: boolean) => {
     if (!user) return;
-    const docRef = doc(firestore, 'users', user.uid, 'credentials', id);
+    const passwordToToggle = passwords.find(p => p.id === id);
+    if (!passwordToToggle || !passwordToToggle.folderId) return;
+
+    const docRef = doc(firestore, 'users', user.uid, 'vaults', passwordToToggle.folderId, 'credentials', id);
     const updateData = { isFavorite: !isFavorite, updatedAt: serverTimestamp() };
 
     updateDoc(docRef, updateData)
@@ -235,5 +270,3 @@ export function useVault() {
   }
   return context;
 }
-
-    
