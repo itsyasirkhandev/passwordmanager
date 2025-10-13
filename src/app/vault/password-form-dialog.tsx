@@ -124,9 +124,9 @@ export function PasswordFormDialog({
               : "Enter the details for the new password entry."}
           </DialogDescription>
         </DialogHeader>
-        <div className="overflow-y-auto pr-6 -mr-6">
+        <div className="overflow-y-auto pr-6 -mr-6 pl-1 -ml-1">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4 pr-5 pl-5">
             <FormField
               control={form.control}
               name="serviceName"
@@ -264,5 +264,3 @@ export function PasswordFormDialog({
     </Dialog>
   );
 }
-
-    
