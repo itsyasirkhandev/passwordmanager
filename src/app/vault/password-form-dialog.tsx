@@ -39,7 +39,10 @@ const passwordSchema = z.object({
   folderId: z.string().optional(),
 });
 
-export type PasswordEntry = z.infer<typeof passwordSchema> & { id: string };
+export type PasswordEntry = z.infer<typeof passwordSchema> & { 
+  id: string;
+  deletedAt?: Date;
+};
 export type PasswordFormValues = z.infer<typeof passwordSchema>;
 
 type PasswordFormDialogProps = {
@@ -81,7 +84,7 @@ export function PasswordFormDialog({
         username: "",
         password: "",
         notes: "",
-        folderId: defaultFolderId ?? folders[0]?.id ?? undefined,
+        folderId: defaultFolderId && defaultFolderId !== 'trash' ? defaultFolderId : (folders[0]?.id ?? undefined),
       });
     }
   }, [initialData, form, defaultFolderId, folders]);
@@ -188,6 +191,7 @@ export function PasswordFormDialog({
                             </SelectTrigger>
                         </FormControl>
                         <SelectContent>
+                            <SelectItem value="none">No Folder</SelectItem>
                             {folders.map(folder => (
                                 <SelectItem key={folder.id} value={folder.id}>
                                     {folder.name}

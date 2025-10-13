@@ -4,6 +4,7 @@ import { useState } from "react";
 import Header from "@/components/header";
 import PasswordList from "./password-list";
 import { FolderSidebar, type Folder } from "@/components/folder-sidebar";
+import { Trash2 } from "lucide-react";
 
 const initialFolders: Folder[] = [
   { id: "1", name: "Personal" },
@@ -20,12 +21,17 @@ export default function VaultPage() {
     setFolders((prev) => [...prev, newFolder]);
   };
 
+  const specialFolders: Folder[] = [
+    { id: "trash", name: "Trash", icon: Trash2 },
+  ];
+
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <Header />
       <main className="flex-1 grid md:grid-cols-[280px_1fr] lg:grid-cols-[320px_1fr]">
         <FolderSidebar
           folders={folders}
+          specialFolders={specialFolders}
           selectedFolderId={selectedFolderId}
           onSelectFolder={setSelectedFolderId}
           onAddFolder={handleAddFolder}

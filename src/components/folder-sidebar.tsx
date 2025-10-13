@@ -1,18 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { Folder as FolderIcon, Plus, X } from "lucide-react";
+import { Folder as FolderIcon, Plus, X, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Input } from "./ui/input";
+import { Separator } from "./ui/separator";
 
 export type Folder = {
   id: string;
   name: string;
+  icon?: LucideIcon;
 };
 
 type FolderSidebarProps = {
   folders: Folder[];
+  specialFolders?: Folder[];
   selectedFolderId: string | null;
   onSelectFolder: (id: string | null) => void;
   onAddFolder: (name: string) => void;
@@ -20,6 +23,7 @@ type FolderSidebarProps = {
 
 export function FolderSidebar({
   folders,
+  specialFolders = [],
   selectedFolderId,
   onSelectFolder,
   onAddFolder,
@@ -75,6 +79,29 @@ export function FolderSidebar({
           </Button>
         ))}
       </nav>
+
+      {specialFolders.length > 0 && (
+        <>
+          <Separator />
+          <nav className="flex flex-col gap-1">
+            {specialFolders.map((folder) => {
+              const Icon = folder.icon || FolderIcon;
+              return (
+                <Button
+                  key={folder.id}
+                  variant={selectedFolderId === folder.id ? "secondary" : "ghost"}
+                  className="w-full justify-start"
+                  onClick={() => onSelectFolder(folder.id)}
+                >
+                  <Icon className="mr-2" />
+                  {folder.name}
+                </Button>
+              );
+            })}
+          </nav>
+        </>
+      )}
+
       <div className="mt-auto">
         {isAdding ? (
           <div className="space-y-2">
