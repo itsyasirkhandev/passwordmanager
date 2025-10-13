@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect } from "react";
@@ -114,7 +115,7 @@ export function PasswordFormDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md grid-rows-[auto_1fr_auto] max-h-[90vh]">
         <DialogHeader>
           <DialogTitle>{isEditing ? "Edit Password" : "Add New Password"}</DialogTitle>
           <DialogDescription>
@@ -123,6 +124,7 @@ export function PasswordFormDialog({
               : "Enter the details for the new password entry."}
           </DialogDescription>
         </DialogHeader>
+        <div className="overflow-y-auto pr-6 -mr-6">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
             <FormField
@@ -251,13 +253,16 @@ export function PasswordFormDialog({
                 </FormItem>
               )}
             />
-            <DialogFooter>
+            <DialogFooter className="pt-4">
                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
               <Button type="submit">{isEditing ? "Save Changes" : "Save Password"}</Button>
             </DialogFooter>
           </form>
         </Form>
+        </div>
       </DialogContent>
     </Dialog>
   );
 }
+
+    
