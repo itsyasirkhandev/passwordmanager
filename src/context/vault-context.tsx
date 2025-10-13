@@ -249,15 +249,20 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     if (!user) return;
     const passwordToDelete = passwords.find(p => p.id === id);
     if (!passwordToDelete || !passwordToDelete.folderId) return;
+    
+    const originalPasswords = passwords;
 
     const docRef = doc(firestore, 'users', user.uid, 'vaults', passwordToDelete.folderId, 'credentials', id);
 
     if (permanent) {
+      // Optimistic delete
+      setPasswords(prev => prev.filter(p => p.id !== id));
       deleteDoc(docRef)
         .then(() => {
             toast({ title: 'Success', description: 'Password permanently deleted.' });
         })
         .catch(serverError => {
+            setPasswords(originalPasswords); // Revert on error
             const permissionError = new FirestorePermissionError({
                 path: docRef.path,
                 operation: 'delete',
@@ -265,12 +270,19 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
             errorEmitter.emit('permission-error', permissionError);
         });
     } else {
+      const now = Timestamp.now();
+      const updatedEntry = { ...passwordToDelete, deletedAt: now, updatedAt: now };
+
+      // Optimistic update
+      setPasswords(prev => prev.map(p => p.id === id ? updatedEntry : p));
+
       const updateData = { deletedAt: serverTimestamp(), updatedAt: serverTimestamp() };
       updateDoc(docRef, updateData)
         .then(() => {
             toast({ title: 'Success', description: 'Password moved to trash.' });
         })
         .catch(serverError => {
+            setPasswords(originalPasswords); // Revert on error
             const permissionError = new FirestorePermissionError({
                 path: docRef.path,
                 operation: 'update',
@@ -286,6 +298,13 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     const passwordToRestore = passwords.find(p => p.id === id);
     if (!passwordToRestore || !passwordToRestore.folderId) return;
     
+    const originalPasswords = passwords;
+    const now = Timestamp.now();
+    const updatedEntry = { ...passwordToRestore, deletedAt: null, updatedAt: now };
+
+    // Optimistic update
+    setPasswords(prev => prev.map(p => p.id === id ? updatedEntry : p));
+
     const docRef = doc(firestore, 'users', user.uid, 'vaults', passwordToRestore.folderId, 'credentials', id);
     const updateData = { deletedAt: null, updatedAt: serverTimestamp() };
     
@@ -294,6 +313,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
             toast({ title: 'Success', description: 'Password restored.' });
         })
         .catch(serverError => {
+            setPasswords(originalPasswords); // Revert on error
             const permissionError = new FirestorePermissionError({
                 path: docRef.path,
                 operation: 'update',
@@ -308,11 +328,18 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     const passwordToToggle = passwords.find(p => p.id === id);
     if (!passwordToToggle || !passwordToToggle.folderId) return;
 
+    const originalPasswords = passwords;
+    const updatedEntry = { ...passwordToToggle, isFavorite: !isFavorite, updatedAt: Timestamp.now() };
+
+    // Optimistic update
+    setPasswords(prev => prev.map(p => p.id === id ? updatedEntry : p));
+
     const docRef = doc(firestore, 'users', user.uid, 'vaults', passwordToToggle.folderId, 'credentials', id);
     const updateData = { isFavorite: !isFavorite, updatedAt: serverTimestamp() };
 
     updateDoc(docRef, updateData)
         .catch(serverError => {
+            setPasswords(originalPasswords); // Revert on error
             const permissionError = new FirestorePermissionError({
                 path: docRef.path,
                 operation: 'update',
