@@ -15,6 +15,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PasswordFormDialog, type PasswordEntry, type PasswordFormValues } from "./password-form-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
+import { type Folder } from "@/components/folder-sidebar";
+
 
 const initialPasswords: PasswordEntry[] = [
   {
@@ -24,6 +26,7 @@ const initialPasswords: PasswordEntry[] = [
     username: "user@gmail.com",
     password: "supersecretpassword1",
     notes: "Security question: Favorite color is blue.",
+    folderId: "1",
   },
   {
     id: "2",
@@ -32,6 +35,7 @@ const initialPasswords: PasswordEntry[] = [
     username: "user.name",
     password: "anotherSecurePassword!",
     notes: "",
+    folderId: "1",
   },
   {
     id: "3",
@@ -40,10 +44,26 @@ const initialPasswords: PasswordEntry[] = [
     username: "git-user",
     password: "my-repo-password-123",
     notes: "Used for work projects.",
+    folderId: "2",
+  },
+  {
+    id: "4",
+    serviceName: "Bank of America",
+    url: "https://bankofamerica.com",
+    username: "bank.user",
+    password: "very-secure-banking-password",
+    notes: "",
+    folderId: "3",
   },
 ];
 
-export default function PasswordList() {
+type PasswordListProps = {
+  selectedFolderId: string | null;
+  folders: Folder[];
+};
+
+
+export default function PasswordList({ selectedFolderId, folders }: PasswordListProps) {
   const [passwords, setPasswords] = useState<PasswordEntry[]>(initialPasswords);
   const [revealedPasswords, setRevealedPasswords] = useState<
     Record<string, boolean>
@@ -55,18 +75,25 @@ export default function PasswordList() {
   const { toast } = useToast();
 
   const filteredPasswords = useMemo(() => {
-    if (!searchQuery) {
-      return passwords;
+    let filtered = passwords;
+
+    if (selectedFolderId) {
+      filtered = filtered.filter(p => p.folderId === selectedFolderId);
     }
+    
+    if (!searchQuery) {
+      return filtered;
+    }
+    
     const lowercasedQuery = searchQuery.toLowerCase();
-    return passwords.filter(
+    return filtered.filter(
       (p) =>
         p.serviceName.toLowerCase().includes(lowercasedQuery) ||
         p.username.toLowerCase().includes(lowercasedQuery) ||
         p.url?.toLowerCase().includes(lowercasedQuery) ||
         p.notes?.toLowerCase().includes(lowercasedQuery)
     );
-  }, [passwords, searchQuery]);
+  }, [passwords, searchQuery, selectedFolderId]);
 
 
   const handleCopy = (text: string, fieldId: string) => {
@@ -123,10 +150,10 @@ export default function PasswordList() {
 
   return (
     <>
-      <Card className="shadow-lg">
+      <Card className="shadow-lg h-full">
         <CardHeader>
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <CardTitle>Your Vault</CardTitle>
+            <CardTitle>{selectedFolderId ? folders.find(f => f.id === selectedFolderId)?.name : "All Passwords"}</CardTitle>
             <div className="flex w-full sm:w-auto items-center gap-2">
                 <div className="relative w-full sm:w-64">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -252,6 +279,8 @@ export default function PasswordList() {
         onOpenChange={setIsFormOpen}
         onSubmit={handleSubmitPassword}
         initialData={editingPassword}
+        folders={folders}
+        defaultFolderId={selectedFolderId}
       />
     </>
   );

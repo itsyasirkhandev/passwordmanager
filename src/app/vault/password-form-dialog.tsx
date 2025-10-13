@@ -26,6 +26,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { PasswordGenerator } from "@/components/password-generator";
 import { KeyRound } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import type { Folder } from "@/components/folder-sidebar";
 
 
 const passwordSchema = z.object({
@@ -34,6 +36,7 @@ const passwordSchema = z.object({
   username: z.string().min(1, "Username is required."),
   password: z.string().min(1, "Password is required."),
   notes: z.string().optional(),
+  folderId: z.string().optional(),
 });
 
 export type PasswordEntry = z.infer<typeof passwordSchema> & { id: string };
@@ -44,6 +47,8 @@ type PasswordFormDialogProps = {
   onOpenChange: (isOpen: boolean) => void;
   onSubmit: (data: PasswordFormValues) => void;
   initialData?: PasswordEntry | null;
+  folders: Folder[];
+  defaultFolderId?: string | null;
 };
 
 export function PasswordFormDialog({
@@ -51,6 +56,8 @@ export function PasswordFormDialog({
   onOpenChange,
   onSubmit,
   initialData,
+  folders,
+  defaultFolderId
 }: PasswordFormDialogProps) {
   const form = useForm<PasswordFormValues>({
     resolver: zodResolver(passwordSchema),
@@ -60,6 +67,7 @@ export function PasswordFormDialog({
       username: "",
       password: "",
       notes: "",
+      folderId: defaultFolderId ?? undefined,
     },
   });
 
@@ -73,9 +81,10 @@ export function PasswordFormDialog({
         username: "",
         password: "",
         notes: "",
+        folderId: defaultFolderId ?? folders[0]?.id ?? undefined,
       });
     }
-  }, [initialData, form]);
+  }, [initialData, form, defaultFolderId, folders]);
 
   const handleFormSubmit = (values: PasswordFormValues) => {
     onSubmit(values);
@@ -162,6 +171,30 @@ export function PasswordFormDialog({
                       </PopoverContent>
                     </Popover>
                   </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+             <FormField
+              control={form.control}
+              name="folderId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Folder</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select a folder" />
+                            </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                            {folders.map(folder => (
+                                <SelectItem key={folder.id} value={folder.id}>
+                                    {folder.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
                   <FormMessage />
                 </FormItem>
               )}
