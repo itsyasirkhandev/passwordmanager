@@ -32,7 +32,7 @@ import { type PasswordEntry } from "./password-form-dialog";
 import { cn } from "@/lib/utils";
 import { format, formatDistanceToNow } from "date-fns";
 import { useState } from "react";
-import { Timestamp } from 'firebase/firestore';
+import { useVault } from "@/context/vault-context";
 
 
 type PasswordDetailSheetProps = {
@@ -73,6 +73,7 @@ export function PasswordDetailSheet({
   onRestore,
 }: PasswordDetailSheetProps) {
   const [isPasswordRevealed, setIsPasswordRevealed] = useState(false);
+  const { getDecryptedPassword } = useVault();
 
   if (!entry) return null;
 
@@ -81,6 +82,8 @@ export function PasswordDetailSheet({
     // Timeout to allow sheet to close before dialog opens
     setTimeout(() => onEdit(entry), 150);
   };
+  
+  const decryptedPassword = getDecryptedPassword(entry);
 
 
   return (
@@ -129,7 +132,7 @@ export function PasswordDetailSheet({
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="font-mono text-sm">
-                    {isPasswordRevealed ? entry.password : "••••••••••••"}
+                    {isPasswordRevealed ? decryptedPassword : "••••••••••••"}
                   </span>
                   <div className="flex items-center">
                     <Button
@@ -146,13 +149,13 @@ export function PasswordDetailSheet({
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => onCopy(entry.password, `${entry.id}-detail-password`, true)}
+                      onClick={() => onCopy(decryptedPassword, `${entry.id}-detail-password`, true)}
                     >
                       <Copy className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
-                <PasswordStrengthIndicator password={entry.password} />
+                <PasswordStrengthIndicator password={decryptedPassword} />
               </div>
             </div>
           </div>

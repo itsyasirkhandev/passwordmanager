@@ -69,7 +69,8 @@ export default function PasswordList({ selectedFolderId, selectedTag, folders }:
     addOrUpdatePassword, 
     deletePassword,
     restorePassword,
-    toggleFavorite 
+    toggleFavorite,
+    getDecryptedPassword,
   } = useVault();
 
   const [revealedPasswords, setRevealedPasswords] = useState<Record<string, boolean>>({});
@@ -500,7 +501,7 @@ export default function PasswordList({ selectedFolderId, selectedTag, folders }:
                                               <DropdownMenuItem onClick={() => handleCopy(entry.username, `${entry.id}-username`)}>
                                                   <Copy className="mr-2" /> Copy Username
                                               </DropdownMenuItem>
-                                              <DropdownMenuItem onClick={() => handleCopy(entry.password, `${entry.id}-password`, true)}>
+                                              <DropdownMenuItem onClick={() => handleCopy(getDecryptedPassword(entry), `${entry.id}-password`, true)}>
                                                   <KeyRound className="mr-2" /> Copy Password
                                               </DropdownMenuItem>
                                               <DropdownMenuSeparator />
@@ -524,7 +525,7 @@ export default function PasswordList({ selectedFolderId, selectedTag, folders }:
                               </DropdownMenu>
                           </div>
                         </div>
-                        <div className="text-muted-foreground text-sm pl-8 md:pl-0 truncate">{entry.username}</div>
+                        <div className="text-muted-foreground text-sm pl-8 md:pl-0 truncate max-w-xs">{entry.username}</div>
                          {entry.tags && entry.tags.length > 0 && !isTrashView && (
                             <div className="flex flex-wrap gap-1 mt-2 pl-8 md:pl-0">
                               {entry.tags.map(tag => (
@@ -552,15 +553,15 @@ export default function PasswordList({ selectedFolderId, selectedTag, folders }:
                         <div className="flex items-center justify-between gap-2">
                            <div className="flex flex-col gap-1.5 flex-1">
                              <span className="font-mono">
-                               {revealedPasswords[entry.id] ? entry.password : "••••••••••••"}
+                               {revealedPasswords[entry.id] ? getDecryptedPassword(entry) : "••••••••••••"}
                              </span>
-                             {!isTrashView && <PasswordStrengthPill password={entry.password} />}
+                             {!isTrashView && <PasswordStrengthPill password={getDecryptedPassword(entry)} />}
                            </div>
                           <div className="flex items-center">
                             <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); togglePasswordVisibility(entry.id); }} aria-label={revealedPasswords[entry.id] ? "Hide password" : "Show password"}>
                               {revealedPasswords[entry.id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                             </Button>
-                             <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleCopy(entry.password, `${entry.id}-password`, true); }} aria-label="Copy password">
+                             <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleCopy(getDecryptedPassword(entry), `${entry.id}-password`, true); }} aria-label="Copy password">
                                {copiedField === `${entry.id}-password` ? <Check className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
                              </Button>
                           </div>
@@ -587,7 +588,7 @@ export default function PasswordList({ selectedFolderId, selectedTag, folders }:
                                           <DropdownMenuItem onClick={() => handleCopy(entry.username, `${entry.id}-username`)}>
                                               <Copy className="mr-2" /> Copy Username
                                           </DropdownMenuItem>
-                                          <DropdownMenuItem onClick={() => handleCopy(entry.password, `${entry.id}-password`, true)}>
+                                          <DropdownMenuItem onClick={() => handleCopy(getDecryptedPassword(entry), `${entry.id}-password`, true)}>
                                               <KeyRound className="mr-2" /> Copy Password
                                           </DropdownMenuItem>
                                           <DropdownMenuSeparator />

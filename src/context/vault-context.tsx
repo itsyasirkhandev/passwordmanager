@@ -15,11 +15,37 @@ import {
   writeBatch,
   Timestamp,
 } from 'firebase/firestore';
+import * as CryptoJS from 'crypto-js';
 import { type PasswordEntry, type PasswordFormValues } from '@/app/vault/password-form-dialog';
 import type { Folder } from '@/components/folder-sidebar';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+
+const ENCRYPTION_KEY = process.env.NEXT_PUBLIC_ENCRYPTION_KEY;
+
+if (!ENCRYPTION_KEY) {
+    console.error("CRITICAL: NEXT_PUBLIC_ENCRYPTION_KEY is not set. Vault data will not be secure.");
+}
+
+
+const encryptPassword = (password: string): string => {
+    if (!ENCRYPTION_KEY) return password; // Fallback for missing key
+    return CryptoJS.AES.encrypt(password, ENCRYPTION_KEY).toString();
+};
+
+const decryptPassword = (encryptedPassword: string): string => {
+    if (!ENCRYPTION_KEY) return encryptedPassword; // Fallback for missing key
+    try {
+        const bytes = CryptoJS.AES.decrypt(encryptedPassword, ENCRYPTION_KEY);
+        const originalText = bytes.toString(CryptoJS.enc.Utf8);
+        return originalText || encryptedPassword; // Return original encrypted if decryption fails
+    } catch (e) {
+        console.error("Failed to decrypt password", e);
+        return encryptedPassword; // Return as-is on error
+    }
+};
+
 
 type VaultContextType = {
   passwords: PasswordEntry[];
@@ -35,6 +61,7 @@ type VaultContextType = {
   deletePassword: (id: string, permanent?: boolean) => Promise<void>;
   restorePassword: (id: string) => Promise<void>;
   toggleFavorite: (id: string, isFavorite: boolean) => Promise<void>;
+  getDecryptedPassword: (entry: PasswordEntry) => string;
 };
 
 const VaultContext = createContext<VaultContextType | undefined>(undefined);
@@ -64,8 +91,9 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
   const createDefaultVault = useCallback(async () => {
     if (!user || !firestore) return;
     const defaultVaultRef = doc(collection(firestore, 'users', user.uid, 'vaults'));
+    const newFolder = { name: "Personal", userId: user.uid, id: defaultVaultRef.id };
     try {
-        await setDoc(defaultVaultRef, { name: "Personal", userId: user.uid });
+        await setDoc(defaultVaultRef, newFolder);
         toast({
             title: "Welcome!",
             description: "We've created a 'Personal' vault for you to get started."
@@ -74,7 +102,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
         const permissionError = new FirestorePermissionError({
             path: defaultVaultRef.path,
             operation: 'create',
-            requestResourceData: { name: "Personal", userId: user.uid, folderId: defaultVaultRef.id },
+            requestResourceData: newFolder,
         });
         errorEmitter.emit('permission-error', permissionError);
     }
@@ -172,6 +200,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     const optimisticEntry: PasswordEntry = {
         ...(id ? passwords.find(p => p.id === id)! : { id: docRef.id, createdAt: now }),
         ...data,
+        password: encryptPassword(data.password), // Encrypt here for optimistic update
         updatedAt: now,
     };
     
@@ -185,8 +214,9 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     });
 
 
-    const dataToSave: Omit<PasswordEntry, 'id'| 'createdAt' | 'updatedAt' | 'deletedAt'> & { updatedAt: any, createdAt?: any } = {
+    const dataToSave = {
       ...data,
+      password: encryptPassword(data.password), // Encrypt for Firestore
       updatedAt: serverTimestamp(),
       ...(id ? {} : { createdAt: serverTimestamp() }),
     };
@@ -283,6 +313,10 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
             errorEmitter.emit('permission-error', permissionError);
         });
   };
+  
+  const getDecryptedPassword = (entry: PasswordEntry): string => {
+    return decryptPassword(entry.password);
+  }
 
   const allTags = useMemo(() => {
     const tags = new Set<string>();
@@ -308,6 +342,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     deletePassword,
     restorePassword,
     toggleFavorite,
+    getDecryptedPassword,
   };
 
   return <VaultContext.Provider value={value}>{children}</VaultContext.Provider>;
