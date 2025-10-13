@@ -3,7 +3,7 @@
 
 import React, { createContext, useContext, useState, useMemo, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useUser, useFirestore, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import {
   collection,
   doc,
@@ -71,10 +71,15 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
         updatedAt: serverTimestamp(),
       };
       // Create or update the user document when the user logs in.
-      // This is a 'get' then 'write' operation, which is allowed by the rules.
-      setDoc(userDocRef, dataToSave, { merge: true }).catch(err => {
-          console.error("Error creating/updating user document:", err);
-      });
+      setDoc(userDocRef, dataToSave, { merge: true })
+        .catch(serverError => {
+            const permissionError = new FirestorePermissionError({
+                path: userDocRef.path,
+                operation: 'write',
+                requestResourceData: dataToSave,
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        });
     }
   }, [user, firestore]);
 
@@ -112,53 +117,86 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       ...(id ? {} : { createdAt: serverTimestamp() }),
     };
 
-    try {
-      await setDoc(docRef, dataToSave, { merge: true });
-      toast({ title: 'Success', description: id ? 'Password updated.' : 'Password added.' });
-    } catch (error) {
-      console.error("Error saving password:", error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Could not save password.' });
-    }
+    setDoc(docRef, dataToSave, { merge: true })
+      .then(() => {
+          toast({ title: 'Success', description: id ? 'Password updated.' : 'Password added.' });
+      })
+      .catch(serverError => {
+          const permissionError = new FirestorePermissionError({
+              path: docRef.path,
+              operation: id ? 'update' : 'create',
+              requestResourceData: dataToSave,
+          });
+          errorEmitter.emit('permission-error', permissionError);
+      });
   };
 
   const deletePassword = async (id: string, permanent = false) => {
     if (!user) return;
     const docRef = doc(firestore, 'users', user.uid, 'credentials', id);
-    try {
-      if (permanent) {
-        await deleteDoc(docRef);
-        toast({ title: 'Success', description: 'Password permanently deleted.' });
-      } else {
-        await updateDoc(docRef, { deletedAt: serverTimestamp(), updatedAt: serverTimestamp() });
-        toast({ title: 'Success', description: 'Password moved to trash.' });
-      }
-    } catch (error) {
-       console.error("Error deleting password:", error);
-       toast({ variant: 'destructive', title: 'Error', description: 'Could not delete password.' });
+
+    if (permanent) {
+      deleteDoc(docRef)
+        .then(() => {
+            toast({ title: 'Success', description: 'Password permanently deleted.' });
+        })
+        .catch(serverError => {
+            const permissionError = new FirestorePermissionError({
+                path: docRef.path,
+                operation: 'delete',
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        });
+    } else {
+      const updateData = { deletedAt: serverTimestamp(), updatedAt: serverTimestamp() };
+      updateDoc(docRef, updateData)
+        .then(() => {
+            toast({ title: 'Success', description: 'Password moved to trash.' });
+        })
+        .catch(serverError => {
+            const permissionError = new FirestorePermissionError({
+                path: docRef.path,
+                operation: 'update',
+                requestResourceData: updateData,
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        });
     }
   };
 
   const restorePassword = async (id: string) => {
     if (!user) return;
     const docRef = doc(firestore, 'users', user.uid, 'credentials', id);
-    try {
-      await updateDoc(docRef, { deletedAt: null, updatedAt: serverTimestamp() });
-      toast({ title: 'Success', description: 'Password restored.' });
-    } catch (error) {
-       console.error("Error restoring password:", error);
-       toast({ variant: 'destructive', title: 'Error', description: 'Could not restore password.' });
-    }
+    const updateData = { deletedAt: null, updatedAt: serverTimestamp() };
+    
+    updateDoc(docRef, updateData)
+        .then(() => {
+            toast({ title: 'Success', description: 'Password restored.' });
+        })
+        .catch(serverError => {
+            const permissionError = new FirestorePermissionError({
+                path: docRef.path,
+                operation: 'update',
+                requestResourceData: updateData,
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        });
   };
 
   const toggleFavorite = async (id: string, isFavorite: boolean) => {
     if (!user) return;
     const docRef = doc(firestore, 'users', user.uid, 'credentials', id);
-    try {
-        await updateDoc(docRef, { isFavorite: !isFavorite, updatedAt: serverTimestamp() });
-    } catch (error) {
-       console.error("Error updating favorite status:", error);
-       toast({ variant: 'destructive', title: 'Error', description: 'Could not update favorite status.' });
-    }
+    const updateData = { isFavorite: !isFavorite, updatedAt: serverTimestamp() };
+
+    updateDoc(docRef, updateData)
+        .catch(serverError => {
+            const permissionError = new FirestorePermissionError({
+                path: docRef.path,
+                operation: 'update',
+                requestResourceData: updateData,
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        });
   };
 
   const allTags = useMemo(() => {
@@ -197,3 +235,5 @@ export function useVault() {
   }
   return context;
 }
+
+    
