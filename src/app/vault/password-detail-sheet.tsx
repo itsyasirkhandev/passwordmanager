@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -39,7 +40,7 @@ type PasswordDetailSheetProps = {
   onEdit: (entry: PasswordEntry) => void;
   onDelete: (id: string) => void;
   onToggleFavorite: (id: string) => void;
-  onCopy: (text: string, fieldId: string) => void;
+  onCopy: (text: string, fieldId: string, isPassword?: boolean) => void;
   isTrashView: boolean;
   onRestore: (id: string) => void;
 };
@@ -132,7 +133,7 @@ export function PasswordDetailSheet({
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => onCopy(entry.password, `${entry.id}-detail-password`)}
+                      onClick={() => onCopy(entry.password, `${entry.id}-detail-password`, true)}
                     >
                       <ClipboardCopy className="h-4 w-4" />
                     </Button>

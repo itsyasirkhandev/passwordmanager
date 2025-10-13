@@ -1,15 +1,17 @@
+
 "use client";
 
 import { useVault } from "@/context/vault-context";
 import Header from "@/components/header";
 import { FolderSidebar } from "@/components/folder-sidebar";
-import { Star, Trash2, ShieldCheck, ShieldAlert, Folder, KeyRound, ArrowRight } from "lucide-react";
+import { Star, Trash2, ShieldCheck, ShieldAlert, Folder, KeyRound, ArrowRight, CopyWarning } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { StrengthChart } from "./strength-chart";
 import { calculatePasswordStrength } from "@/lib/password-strength";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useMemo } from "react";
 
 export default function DashboardPage() {
   const { passwords, folders, addFolder, selectFolder, selectTag } = useVault();
@@ -31,12 +33,28 @@ export default function DashboardPage() {
   ];
   
   const recentlyAdded = [...activePasswords].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5);
+  
+  const duplicatePasswords = useMemo(() => {
+    const passwordCounts = activePasswords.reduce((acc, p) => {
+        acc[p.password] = (acc[p.password] || 0) + 1;
+        return acc;
+    }, {} as Record<string, number>);
+    
+    return Object.entries(passwordCounts).filter(([_, count]) => count > 1).length;
+  }, [activePasswords]);
+
 
   const securityRecommendations = [
       ...(strengthCounts['Weak'] > 0 ? [{
           title: "Update Weak Passwords",
           description: `You have ${strengthCounts['Weak']} weak password(s).`,
           icon: ShieldAlert,
+          color: "text-destructive",
+      }] : []),
+       ...(duplicatePasswords > 0 ? [{
+          title: "Change Reused Passwords",
+          description: `You have ${duplicatePasswords} reused password(s). Using the same password for multiple sites is a security risk.`,
+          icon: CopyWarning,
           color: "text-destructive",
       }] : []),
       ...(strengthCounts['Medium'] > 0 ? [{
@@ -50,7 +68,7 @@ export default function DashboardPage() {
   if (securityRecommendations.length === 0) {
       securityRecommendations.push({
           title: "Great Security!",
-          description: "All your passwords are rated strong or very strong.",
+          description: "All your passwords are rated strong or very strong and you have no reused passwords.",
           icon: ShieldCheck,
           color: "text-green-500"
       })
@@ -97,7 +115,7 @@ export default function DashboardPage() {
                         <p className="text-xs text-muted-foreground">categories for organization</p>
                     </CardContent>
                 </Card>
-                <Card className="col-span-1 md:col-span-2">
+                <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Weak Passwords</CardTitle>
                         <ShieldAlert className="h-4 w-4 text-destructive" />
@@ -105,6 +123,16 @@ export default function DashboardPage() {
                     <CardContent>
                         <div className="text-2xl font-bold text-destructive">{strengthCounts['Weak'] || 0}</div>
                         <p className="text-xs text-muted-foreground">passwords need immediate attention</p>
+                    </CardContent>
+                </Card>
+                 <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Reused Passwords</CardTitle>
+                        <CopyWarning className="h-4 w-4 text-destructive" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold text-destructive">{duplicatePasswords}</div>
+                        <p className="text-xs text-muted-foreground">passwords appear on multiple sites</p>
                     </CardContent>
                 </Card>
             </div>

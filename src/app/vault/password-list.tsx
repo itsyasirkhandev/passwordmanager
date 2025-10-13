@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -135,12 +136,19 @@ export default function PasswordList({ passwords, setPasswords, selectedFolderId
     }
   }, [viewingPassword, filteredAndSortedPasswords]);
 
-  const handleCopy = (text: string, fieldId: string) => {
+  const handleCopy = (text: string, fieldId: string, isPassword = false) => {
     navigator.clipboard.writeText(text).then(
       () => {
         setCopiedField(fieldId);
         toast({ title: "Copied to clipboard!" });
         setTimeout(() => setCopiedField(null), 2000);
+        if (isPassword) {
+          setTimeout(() => {
+            navigator.clipboard.writeText("").then(() => {
+              toast({ title: "Clipboard cleared for security.", description: "The copied password has been removed from your clipboard." });
+            });
+          }, 60000);
+        }
       },
       (err) => {
         console.error("Could not copy text: ", err);
@@ -474,7 +482,7 @@ export default function PasswordList({ passwords, setPasswords, selectedFolderId
                           <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); togglePasswordVisibility(entry.id); }} aria-label={revealedPasswords[entry.id] ? "Hide password" : "Show password"}>
                             {revealedPasswords[entry.id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                           </Button>
-                           <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleCopy(entry.password, `${entry.id}-password`); }} aria-label="Copy password">
+                           <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleCopy(entry.password, `${entry.id}-password`, true); }} aria-label="Copy password">
                              {copiedField === `${entry.id}-password` ? <Check className="h-4 w-4 text-primary" /> : <ClipboardCopy className="h-4 w-4" />}
                            </Button>
                         </div>
@@ -501,7 +509,7 @@ export default function PasswordList({ passwords, setPasswords, selectedFolderId
                                         <DropdownMenuItem onClick={() => handleCopy(entry.username, `${entry.id}-username`)}>
                                             <ClipboardCopy className="mr-2" /> Copy Username
                                         </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => handleCopy(entry.password, `${entry.id}-password`)}>
+                                        <DropdownMenuItem onClick={() => handleCopy(entry.password, `${entry.id}-password`, true)}>
                                             <KeyRound className="mr-2" /> Copy Password
                                         </DropdownMenuItem>
                                         <DropdownMenuSeparator />
