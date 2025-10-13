@@ -100,7 +100,7 @@ export function PasswordFormDialog({
           username: "",
           password: "",
           notes: "",
-          folderId: validDefaultFolder ? defaultFolderId : (firstAvailableFolder ?? 'none'),
+          folderId: validDefaultFolder ? defaultFolderId : firstAvailableFolder,
           tags: [],
           isFavorite: false,
         });
@@ -110,11 +110,7 @@ export function PasswordFormDialog({
 
   const handleFormSubmit = async (values: PasswordFormValues) => {
     setIsSubmitting(true);
-    const dataToSubmit = {
-        ...values,
-        folderId: values.folderId === 'none' ? undefined : values.folderId
-    }
-    await onSubmit(dataToSubmit);
+    await onSubmit(values);
     setIsSubmitting(false);
     onOpenChange(false);
   };
@@ -212,14 +208,13 @@ export function PasswordFormDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Folder</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value || 'none'}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                             <SelectTrigger>
                                 <SelectValue placeholder="Select a folder" />
                             </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                            <SelectItem value="none">No Folder</SelectItem>
                             {folders && folders.map(folder => (
                                 <SelectItem key={folder.id} value={folder.id}>
                                     {folder.name}
