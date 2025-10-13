@@ -1,109 +1,105 @@
 /**
  * @fileoverview Firestore Security Rules for CipherVault.
  *
- * This ruleset enforces a strict user-ownership model. All data (users, vaults, and credentials)
- * is nested under `/users/{userId}`, ensuring that only the authenticated user can access their own data.
+ * Core Philosophy:
+ * This ruleset enforces a strict user-ownership model. All data is nested under
+ * /users/{userId}, ensuring that only the authenticated user can access their own
+ * vaults and credentials.
  *
  * Data Structure:
- * - `/users/{userId}`: Stores user profile information.
- * - `/users/{userId}/vaults/{vaultId}`: Stores password vaults for each user.
- * - `/users/{userId}/vaults/{vaultId}/credentials/{credentialId}`: Stores individual credentials within each vault.
+ * The data is organized hierarchically: /users/{userId}/vaults/{vaultId}/credentials/{credentialId}.
+ * This structure allows for simple, path-based authorization.
  *
  * Key Security Decisions:
- * - Strict Ownership: All write operations are restricted to the owning user, enforced via `isOwner(userId)`.
- * - Path-Based Authorization: The hierarchical data structure allows for simple, efficient security rules based on the document path.
- * - No User Listing: Listing all users is not permitted.
- * - Denormalization: Documents MUST contain the necessary `userId` or `vaultId` fields to validate ownership on creation.
+ * - Users can only create, read, update, and delete their own vaults and credentials.
+ * - Listing other users' data is explicitly denied.
+ * - The rules explicitly deny any unauthorized access attempts.
+ *
+ * Denormalization for Authorization:
+ * The `userId` is embedded in the path for both vaults and credentials, allowing
+ * for direct ownership checks without additional `get()` calls.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Checks if the user is signed in.
-     * @path N/A
-     * @allow N/A
-     * @deny N/A
-     * @principle Verifies user authentication.
-     */
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    /**
-     * @description Checks if the authenticated user is the owner of the resource.
-     * @path N/A
-     * @allow N/A
-     * @deny N/A
-     * @principle Enforces user-based ownership.
-     */
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    /**
-     * @description Checks if the authenticated user is the owner of the resource and the document exists.
-     * @path N/A
-     * @allow N/A
-     * @deny N/A
-     * @principle Prevents modification of non-existent documents.
-     */
-    function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
-    }
-
-    /**
-     * @description Manages user profile data. Only the authenticated user can read, create, update, or delete their own profile.
+     * @description Enforces user-ownership for user documents.
      * @path /users/{userId}
-     * @allow (get, list) User 'user123' can read their own profile.
-     * @allow (create) User 'user123' can create their profile if request.auth.uid == userId.
-     * @allow (update, delete) User 'user123' can update or delete their own profile.
-     * @deny (get, list) User 'user456' cannot read User 'user123' profile.
-     * @deny (create) User 'user123' cannot create User 'user456' profile.
-     * @deny (update, delete) User 'user456' cannot update or delete User 'user123' profile.
+     * @allow (create) User with ID 'user123' can create their own document.
+     *    Request: auth.uid = 'user123', resource.data.id = 'user123'
+     * @deny (create) User with ID 'user123' cannot create a document with ID 'otherUser'.
+     *    Reason: Mismatched user ID.
+     * @allow (get) User with ID 'user123' can read their own document.
+     * @allow (list) User with ID 'user123' can list their own documents.
+     * @allow (update) User with ID 'user123' can update their own document.
+     *    Request: auth.uid = 'user123', resource.data.id = 'user123', resource.data.email = 'newemail@example.com'
+     * @deny (update) User with ID 'user123' cannot update a document with ID 'otherUser'.
+     *    Reason: Mismatched user ID.
+     * @allow (delete) User with ID 'user123' can delete their own document.
      * @principle Enforces document ownership for all operations.
      */
     match /users/{userId} {
-      allow get, list: if isOwner(userId);
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
       allow create: if isOwner(userId) && request.resource.data.id == userId;
-      allow update, delete: if isExistingOwner(userId);
+      allow update: if isOwner(userId) && resource.data.id == userId;
+      allow delete: if isOwner(userId) && resource != null;
     }
 
     /**
-     * @description Manages user's password vaults. Only the authenticated user can read, create, update, or delete their own vaults.
+     * @description Enforces user-ownership for vaults.
      * @path /users/{userId}/vaults/{vaultId}
-     * @allow (get, list) User 'user123' can read their own vaults.
-     * @allow (create) User 'user123' can create a vault if request.auth.uid == userId and request.resource.data.userId == userId.
-     * @allow (update, delete) User 'user123' can update or delete their own vaults.
-     * @deny (get, list) User 'user456' cannot read User 'user123' vaults.
-     * @deny (create) User 'user123' cannot create a vault under User 'user456'.
-     * @deny (update, delete) User 'user456' cannot update or delete User 'user123' vaults.
-     * @principle Enforces document ownership for all operations on vaults.
+     * @allow (create) User with ID 'user123' can create a vault under their ID.
+     *    Request: auth.uid = 'user123'
+     * @deny (create) User with ID 'user123' cannot create a vault under 'otherUser'.
+     *    Reason: Mismatched user ID.
+     * @allow (get) User with ID 'user123' can read a vault under their ID.
+     * @allow (list) User with ID 'user123' can list vaults under their ID.
+     * @allow (update) User with ID 'user123' can update a vault under their ID.
+     * @deny (update) User with ID 'user123' cannot update a vault under 'otherUser'.
+     *    Reason: Mismatched user ID.
+     * @allow (delete) User with ID 'user123' can delete a vault under their ID.
+     * @principle Enforces document ownership for all operations.
      */
     match /users/{userId}/vaults/{vaultId} {
-      allow get, list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.userId == userId;
-      allow update, delete: if isExistingOwner(userId);
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) && resource != null;
+      allow delete: if isOwner(userId) && resource != null;
     }
 
     /**
-     * @description Manages credentials within a user's vault. Only the authenticated user can read, create, update, or delete credentials in their vaults.
+     * @description Enforces user-ownership for credentials.
      * @path /users/{userId}/vaults/{vaultId}/credentials/{credentialId}
-     * @allow (read) User 'user123' can read credentials in their own vaults.
-     * @allow (create) User 'user123' can create a credential in their vault if request.resource.data.vaultId == vaultId.
-     * @allow (update) User 'user123' can update a credential in their vault if request.resource.data.vaultId == resource.data.vaultId.
-     * @allow (delete) User 'user123' can delete credentials in their own vaults.
-     * @deny (read) User 'user456' cannot read credentials in User 'user123' vaults.
-     * @deny (create) User 'user123' cannot create a credential in a vault they don't own.
-     * @deny (update) User 'user123' cannot update a credential and move it to a different vault.
-     * @deny (delete) User 'user456' cannot delete credentials in User 'user123' vaults.
-     * @principle Enforces document ownership and vault consistency for all credential operations.
+     * @allow (create) User with ID 'user123' can create a credential under their vault.
+     *    Request: auth.uid = 'user123'
+     * @deny (create) User with ID 'user123' cannot create a credential under 'otherUser's vault.
+     *    Reason: Mismatched user ID.
+     * @allow (get) User with ID 'user123' can read a credential under their vault.
+     * @allow (list) User with ID 'user123' can list credentials under their vault.
+     * @allow (update) User with ID 'user123' can update a credential under their vault.
+     * @deny (update) User with ID 'user123' cannot update a credential under 'otherUser's vault.
+     *    Reason: Mismatched user ID.
+     * @allow (delete) User with ID 'user123' can delete a credential under their vault.
+     * @principle Enforces document ownership for all operations.
      */
     match /users/{userId}/vaults/{vaultId}/credentials/{credentialId} {
-      allow get, list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.vaultId == vaultId;
-      allow update: if isOwner(userId) && resource != null && request.resource.data.vaultId == resource.data.vaultId;
-      allow delete: if isExistingOwner(userId);
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) && resource != null;
+      allow delete: if isOwner(userId) && resource != null;
     }
   }
 }
