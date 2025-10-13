@@ -7,9 +7,10 @@ import PasswordList from "./password-list";
 import { FolderSidebar, MobileSidebar } from "@/components/folder-sidebar";
 import { useVault } from "@/context/vault-context";
 import { cn } from "@/lib/utils";
+import withAuth from "@/components/withAuth";
 
 
-export default function VaultPage() {
+function VaultPage() {
   const { folders, addFolder, selectFolder, selectTag, allTags, selectedFolderId, selectedTag, passwords, setPasswords } = useVault();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true);
@@ -65,3 +66,6 @@ export default function VaultPage() {
     </div>
   );
 }
+
+
+export default withAuth(VaultPage);
