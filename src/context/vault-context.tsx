@@ -131,12 +131,12 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     
-    if (isLoadingFolders) {
+    if (isLoadingFolders || !folders) {
         setIsLoadingPasswords(true);
         return;
     }
 
-    if (!folders) {
+    if (folders.length === 0) {
         setPasswords([]);
         setIsLoadingPasswords(false);
         return;
