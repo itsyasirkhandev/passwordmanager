@@ -169,12 +169,12 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
   const addFolder = (folderName: string) => {
      if (!user) return;
      const newFolderRef = doc(collection(firestore, 'users', user.uid, 'vaults'));
-     const newFolder: Partial<Folder> & {userId: string} = { name: folderName, userId: user.uid };
+     const newFolder: Partial<Folder> & {userId: string, id: string} = { name: folderName, userId: user.uid, id: newFolderRef.id };
      setDoc(newFolderRef, newFolder).catch(serverError => {
         const permissionError = new FirestorePermissionError({
             path: newFolderRef.path,
             operation: 'create',
-            requestResourceData: {...newFolder, folderId: newFolderRef.id},
+            requestResourceData: newFolder,
         });
         errorEmitter.emit('permission-error', permissionError);
      });
@@ -205,20 +205,23 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     const docRef = id ? doc(firestore, collectionPath, id) : doc(collection(firestore, collectionPath));
     
     const now = Timestamp.now();
-    const optimisticEntry: PasswordEntry = {
-        ...(id ? passwords.find(p => p.id === id)! : { id: docRef.id, createdAt: now }),
-        ...data,
-        password: data.password, // Keep plaintext for optimistic update, will be encrypted for DB
-        updatedAt: now,
-    };
     
     // Optimistic update
+    const optimisticEntry: PasswordEntry = {
+      ...(id ? passwords.find(p => p.id === id)! : { id: docRef.id, createdAt: now, userId: user.uid }),
+      ...data,
+      updatedAt: now,
+    };
+
+    const originalPasswords = passwords;
     setPasswords(prev => {
-        const existing = prev.find(p => p.id === optimisticEntry.id);
-        if (existing) {
-            return prev.map(p => p.id === optimisticEntry.id ? { ...optimisticEntry, password: encryptPassword(data.password) } : p);
+        const existingIndex = prev.findIndex(p => p.id === optimisticEntry.id);
+        if (existingIndex > -1) {
+            const updatedPasswords = [...prev];
+            updatedPasswords[existingIndex] = optimisticEntry;
+            return updatedPasswords;
         }
-        return [...prev, { ...optimisticEntry, password: encryptPassword(data.password) }];
+        return [...prev, optimisticEntry];
     });
 
 
@@ -226,7 +229,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       ...data,
       password: encryptPassword(data.password), // Encrypt for Firestore
       updatedAt: serverTimestamp(),
-      ...(id ? {} : { createdAt: serverTimestamp() }),
+      ...(id ? {} : { createdAt: serverTimestamp(), userId: user.uid }),
     };
 
     setDoc(docRef, dataToSave, { merge: true })
@@ -235,7 +238,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       })
       .catch(serverError => {
           // Revert optimistic update on error
-          setPasswords(passwords); 
+          setPasswords(originalPasswords); 
           const permissionError = new FirestorePermissionError({
               path: docRef.path,
               operation: id ? 'update' : 'create',
@@ -273,8 +276,9 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       const now = Timestamp.now();
       const updatedEntry = { ...passwordToDelete, deletedAt: now, updatedAt: now };
 
-      // Optimistic update
+      // Optimistic update (for moving to trash)
       setPasswords(prev => prev.map(p => p.id === id ? updatedEntry : p));
+
 
       const updateData = { deletedAt: serverTimestamp(), updatedAt: serverTimestamp() };
       updateDoc(docRef, updateData)
