@@ -241,7 +241,7 @@ export function MobileSidebar({ isOpen, onOpenChange, ...props}: MobileSidebarPr
                     <SheetTitle className="text-2xl font-bold tracking-tight text-left">CipherVault</SheetTitle>
                     <SheetDescription className="text-left">A clean and secure password manager.</SheetDescription>
                 </SheetHeader>
-                <div className="p-4 flex flex-col gap-4 h-full">
+                <div className="p-4 flex flex-col gap-4 flex-1 overflow-y-auto">
                     <FolderSidebar {...props} onClose={() => onOpenChange(false)} />
                 </div>
             </SheetContent>
