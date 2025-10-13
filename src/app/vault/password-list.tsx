@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Eye, EyeOff, PlusCircle, ClipboardCopy, Check } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Eye, EyeOff, PlusCircle, ClipboardCopy, Check, Search, X } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PasswordFormDialog, type PasswordEntry, type PasswordFormValues } from "./password-form-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { Input } from "@/components/ui/input";
 
 const initialPasswords: PasswordEntry[] = [
   {
@@ -50,7 +51,23 @@ export default function PasswordList() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingPassword, setEditingPassword] = useState<PasswordEntry | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
+
+  const filteredPasswords = useMemo(() => {
+    if (!searchQuery) {
+      return passwords;
+    }
+    const lowercasedQuery = searchQuery.toLowerCase();
+    return passwords.filter(
+      (p) =>
+        p.serviceName.toLowerCase().includes(lowercasedQuery) ||
+        p.username.toLowerCase().includes(lowercasedQuery) ||
+        p.url?.toLowerCase().includes(lowercasedQuery) ||
+        p.notes?.toLowerCase().includes(lowercasedQuery)
+    );
+  }, [passwords, searchQuery]);
+
 
   const handleCopy = (text: string, fieldId: string) => {
     navigator.clipboard.writeText(text).then(
@@ -107,12 +124,35 @@ export default function PasswordList() {
   return (
     <>
       <Card className="shadow-lg">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Your Vault</CardTitle>
-          <Button onClick={handleOpenAddForm}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Add Password
-          </Button>
+        <CardHeader>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <CardTitle>Your Vault</CardTitle>
+            <div className="flex w-full sm:w-auto items-center gap-2">
+                <div className="relative w-full sm:w-64">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                        placeholder="Search vault..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-10"
+                    />
+                    {searchQuery && (
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
+                            onClick={() => setSearchQuery("")}
+                        >
+                            <X className="h-4 w-4" />
+                        </Button>
+                    )}
+                </div>
+                <Button onClick={handleOpenAddForm} className="whitespace-nowrap">
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Add Password
+                </Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="border rounded-md">
@@ -125,7 +165,7 @@ export default function PasswordList() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {passwords.map((entry) => (
+                {filteredPasswords.map((entry) => (
                   <TableRow key={entry.id} onClick={() => handleOpenEditForm(entry)} className="cursor-pointer">
                     <TableCell className="font-medium">
                       {entry.serviceName}
@@ -197,6 +237,12 @@ export default function PasswordList() {
             <div className="text-center py-12 text-muted-foreground">
               <p>Your vault is empty.</p>
               <p>Click "Add Password" to get started.</p>
+            </div>
+          )}
+          {passwords.length > 0 && filteredPasswords.length === 0 && (
+            <div className="text-center py-12 text-muted-foreground">
+                <p>No results found for "{searchQuery}".</p>
+                <p>Try searching for something else.</p>
             </div>
           )}
         </CardContent>
