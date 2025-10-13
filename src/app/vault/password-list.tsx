@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { Eye, EyeOff, PlusCircle, ClipboardCopy, Check, Search, X, MoreHorizontal, Pencil, Trash2, Undo, ShieldAlert, KeyRound, Star, Filter, SortAsc } from "lucide-react";
+import { Eye, EyeOff, PlusCircle, ClipboardCopy, Check, Search, X, MoreHorizontal, Pencil, Trash2, Undo, ShieldAlert, KeyRound, Star, Filter, SortAsc, Download } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -44,6 +44,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { PasswordStrengthPill } from "@/components/password-strength-indicator";
+import { ExportDialog } from "./export-dialog";
 
 
 export type { PasswordEntry };
@@ -62,6 +63,7 @@ type PasswordListProps = {
 export default function PasswordList({ passwords, setPasswords, selectedFolderId, selectedTag, folders }: PasswordListProps) {
   const [revealedPasswords, setRevealedPasswords] = useState<Record<string, boolean>>({});
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isExportOpen, setIsExportOpen] = useState(false);
   const [editingPassword, setEditingPassword] = useState<PasswordEntry | null>(null);
   const [viewingPassword, setViewingPassword] = useState<PasswordEntry | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -261,9 +263,14 @@ export default function PasswordList({ passwords, setPasswords, selectedFolderId
       }
 
       return (
-        <Button variant="destructive" size="sm" onClick={() => handleDeleteRequest(selectedIds)}>
-          <Trash2 className="mr-2 h-4 w-4" /> Move to Trash ({selectedIds.length})
-        </Button>
+        <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setIsExportOpen(true)}>
+                <Download className="mr-2 h-4 w-4" /> Export ({selectedIds.length})
+            </Button>
+            <Button variant="destructive" size="sm" onClick={() => handleDeleteRequest(selectedIds)}>
+              <Trash2 className="mr-2 h-4 w-4" /> Move to Trash ({selectedIds.length})
+            </Button>
+        </div>
       )
   };
 
@@ -289,10 +296,15 @@ export default function PasswordList({ passwords, setPasswords, selectedFolderId
             </div>
             <div className="flex w-full sm:w-auto items-center gap-2">
                 {!isTrashView && (
-                    <Button onClick={handleOpenAddForm} className="whitespace-nowrap">
-                        <PlusCircle className="mr-2 h-4 w-4" />
-                        Add Password
-                    </Button>
+                    <>
+                        <Button variant="outline" onClick={() => setIsExportOpen(true)}>
+                            <Download className="mr-2 h-4 w-4" /> Export
+                        </Button>
+                        <Button onClick={handleOpenAddForm} className="whitespace-nowrap">
+                            <PlusCircle className="mr-2 h-4 w-4" />
+                            Add Password
+                        </Button>
+                    </>
                 )}
             </div>
           </div>
@@ -578,6 +590,17 @@ export default function PasswordList({ passwords, setPasswords, selectedFolderId
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <ExportDialog
+        isOpen={isExportOpen}
+        onOpenChange={setIsExportOpen}
+        allPasswords={passwords}
+        filteredPasswords={filteredAndSortedPasswords}
+        selectedIds={selectedIds}
+        folders={folders}
+        currentFolderId={selectedFolderId}
+        currentTag={selectedTag}
+        isTrashView={isTrashView}
+       />
     </>
   );
 }
