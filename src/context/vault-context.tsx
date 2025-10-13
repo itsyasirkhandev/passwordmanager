@@ -56,7 +56,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     if (!user) return null;
     return collection(firestore, 'users', user.uid, 'vaults');
   }, [firestore, user]);
-  const { data: folders = [], isLoading: isLoadingFolders } = useCollection<Folder>(vaultsCol);
+  const { data: folders, isLoading: isLoadingFolders } = useCollection<Folder>(vaultsCol);
 
   useEffect(() => {
     if (!user || !firestore || isLoadingFolders) {
@@ -65,7 +65,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     }
 
     // If there are no vaults, there are no passwords to fetch.
-    if (folders.length === 0) {
+    if (!folders || folders.length === 0) {
         setPasswords([]);
         setIsLoadingPasswords(false);
         return;
@@ -247,7 +247,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
   const value = {
     passwords: passwords || [],
     isLoadingPasswords,
-    folders,
+    folders: folders || [],
     addFolder,
     allTags,
     selectedFolderId,
