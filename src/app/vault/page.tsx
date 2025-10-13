@@ -4,7 +4,7 @@ import { useState } from "react";
 import Header from "@/components/header";
 import PasswordList, { type PasswordEntry } from "./password-list";
 import { FolderSidebar, type Folder } from "@/components/folder-sidebar";
-import { Trash2 } from "lucide-react";
+import { Star, Trash2 } from "lucide-react";
 import { useMemo } from "react";
 
 const initialFolders: Folder[] = [
@@ -23,6 +23,9 @@ const initialPasswords: PasswordEntry[] = [
     notes: "Security question: Favorite color is blue.",
     folderId: "1",
     tags: ["social", "important"],
+    isFavorite: true,
+    createdAt: new Date("2023-01-15T10:00:00Z"),
+    updatedAt: new Date("2023-01-15T10:00:00Z"),
   },
   {
     id: "2",
@@ -33,6 +36,9 @@ const initialPasswords: PasswordEntry[] = [
     notes: "",
     folderId: "1",
     tags: ["social"],
+    isFavorite: false,
+    createdAt: new Date("2023-02-20T11:00:00Z"),
+    updatedAt: new Date("2023-03-01T15:30:00Z"),
   },
   {
     id: "3",
@@ -43,6 +49,9 @@ const initialPasswords: PasswordEntry[] = [
     notes: "Used for work projects.",
     folderId: "2",
     tags: ["work", "dev"],
+    isFavorite: true,
+    createdAt: new Date("2023-03-10T09:00:00Z"),
+    updatedAt: new Date("2023-04-10T09:00:00Z"),
   },
   {
     id: "4",
@@ -53,6 +62,9 @@ const initialPasswords: PasswordEntry[] = [
     notes: "",
     folderId: "3",
     tags: ["banking", "important"],
+    isFavorite: false,
+    createdAt: new Date("2023-04-01T14:00:00Z"),
+    updatedAt: new Date("2023-04-01T14:00:00Z"),
   },
 ];
 
@@ -79,6 +91,7 @@ export default function VaultPage() {
   }
 
   const specialFolders: Folder[] = [
+    { id: "favorites", name: "Favorites", icon: Star },
     { id: "trash", name: "Trash", icon: Trash2 },
   ];
 
@@ -106,7 +119,7 @@ export default function VaultPage() {
           onSelectTag={handleSelectTag}
           onAddFolder={handleAddFolder}
         />
-        <div className="p-4 sm:p-6 lg:p-8">
+        <div className="p-4 sm:p-6 lg:p-8 flex flex-col">
             <PasswordList 
               passwords={passwords}
               setPasswords={setPasswords}

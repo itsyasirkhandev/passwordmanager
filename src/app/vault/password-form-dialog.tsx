@@ -39,10 +39,13 @@ const passwordSchema = z.object({
   notes: z.string().optional(),
   folderId: z.string().optional(),
   tags: z.array(z.string()).optional(),
+  isFavorite: z.boolean().optional(),
 });
 
 export type PasswordEntry = z.infer<typeof passwordSchema> & { 
   id: string;
+  createdAt: Date;
+  updatedAt: Date;
   deletedAt?: Date;
 };
 export type PasswordFormValues = z.infer<typeof passwordSchema>;
@@ -74,6 +77,7 @@ export function PasswordFormDialog({
       notes: "",
       folderId: defaultFolderId ?? undefined,
       tags: [],
+      isFavorite: false,
     },
   });
 
@@ -89,6 +93,7 @@ export function PasswordFormDialog({
         notes: "",
         folderId: defaultFolderId && defaultFolderId !== 'trash' ? defaultFolderId : (folders[0]?.id ?? undefined),
         tags: [],
+        isFavorite: false,
       });
     }
   }, [initialData, form, defaultFolderId, folders]);
@@ -188,7 +193,7 @@ export function PasswordFormDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Folder</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
                         <FormControl>
                             <SelectTrigger>
                                 <SelectValue placeholder="Select a folder" />
