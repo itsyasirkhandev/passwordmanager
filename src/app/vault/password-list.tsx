@@ -10,7 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PasswordFormDialog, type PasswordEntry, type PasswordFormValues } from "./password-form-dialog";
 import { useToast } from "@/hooks/use-toast";
