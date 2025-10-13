@@ -48,7 +48,8 @@ const decryptPassword = (encryptedPassword: string): string => {
 
         return originalText;
     } catch (e) {
-        console.error("Failed to decrypt password, returning original value.", e);
+        // This catch block handles errors like "Malformed UTF-8 data" which occur
+        // when trying to decrypt a string that was never encrypted.
         return encryptedPassword; // Return as-is on any error
     }
 };
