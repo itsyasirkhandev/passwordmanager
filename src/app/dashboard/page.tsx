@@ -100,7 +100,7 @@ function DashboardPage() {
   };
 
   const renderDashboard = () => (
-     <div className="p-4 sm:p-6 lg:p-8 flex flex-col gap-6 overflow-y-auto">
+     <div className="p-4 sm:p-6 lg:p-8 flex flex-col gap-6">
         <h1 className="text-3xl font-bold">Security Dashboard</h1>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
@@ -243,11 +243,11 @@ function DashboardPage() {
         onSelectTag={selectTag}
         onAddFolder={addFolder}
       />
-      <main className={cn(
-          "flex-1 grid transition-all duration-300",
+      <div className={cn(
+          "flex-1 grid transition-all duration-300 overflow-hidden",
           isDesktopSidebarOpen ? "md:grid-cols-[280px_1fr] lg:grid-cols-[320px_1fr]" : "md:grid-cols-[80px_1fr]"
       )}>
-        <aside className={cn("hidden md:block transition-all duration-300 overflow-hidden", isDesktopSidebarOpen ? "w-[280px] lg:w-[320px]" : "w-[80px]")}>
+        <aside className={cn("hidden md:block transition-all duration-300 overflow-y-auto", isDesktopSidebarOpen ? "w-[280px] lg:w-[320px]" : "w-[80px]")}>
            <FolderSidebar
             folders={folders}
             tags={allTags}
@@ -259,8 +259,10 @@ function DashboardPage() {
             isCollapsed={!isDesktopSidebarOpen}
             />
         </aside>
-        {renderDashboard()}
-      </main>
+        <main className="overflow-y-auto">
+          {renderDashboard()}
+        </main>
+      </div>
     </div>
   );
 }
