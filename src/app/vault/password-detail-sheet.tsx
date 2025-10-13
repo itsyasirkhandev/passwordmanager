@@ -32,6 +32,8 @@ import { type PasswordEntry } from "./password-form-dialog";
 import { cn } from "@/lib/utils";
 import { format, formatDistanceToNow } from "date-fns";
 import { useState } from "react";
+import { Timestamp } from 'firebase/firestore';
+
 
 type PasswordDetailSheetProps = {
   entry: PasswordEntry | null;
@@ -39,11 +41,25 @@ type PasswordDetailSheetProps = {
   onOpenChange: (open: boolean) => void;
   onEdit: (entry: PasswordEntry) => void;
   onDelete: (id: string) => void;
-  onToggleFavorite: (id: string) => void;
+  onToggleFavorite: (id: string, isFavorite: boolean) => void;
   onCopy: (text: string, fieldId: string, isPassword?: boolean) => void;
   isTrashView: boolean;
   onRestore: (id: string) => void;
 };
+
+const formatDate = (date: any) => {
+    if (!date) return 'N/A';
+    // Convert Firestore Timestamp to Date if necessary
+    const jsDate = date.toDate ? date.toDate() : new Date(date);
+    return format(jsDate, "PPP p");
+};
+
+const formatAge = (date: any) => {
+    if (!date) return 'N/A';
+    const jsDate = date.toDate ? date.toDate() : new Date(date);
+    return formatDistanceToNow(jsDate, { addSuffix: true });
+};
+
 
 export function PasswordDetailSheet({
   entry,
@@ -66,9 +82,6 @@ export function PasswordDetailSheet({
     setTimeout(() => onEdit(entry), 150);
   };
 
-  const getPasswordAge = () => {
-    return formatDistanceToNow(new Date(entry.updatedAt), { addSuffix: true });
-  };
 
   return (
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
@@ -180,15 +193,15 @@ export function PasswordDetailSheet({
               <div className="space-y-3 text-sm">
                  <div className="flex items-center gap-2 text-muted-foreground">
                     <Calendar className="h-4 w-4" />
-                    <span>Last updated: {getPasswordAge()}</span>
+                    <span>Last updated: {formatAge(entry.updatedAt)}</span>
                  </div>
                  <div className="flex items-center gap-2 text-muted-foreground">
                     <Calendar className="h-4 w-4" />
-                    <span>Modified: {format(new Date(entry.updatedAt), "PPP p")}</span>
+                    <span>Modified: {formatDate(entry.updatedAt)}</span>
                  </div>
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Calendar className="h-4 w-4" />
-                    <span>Created: {format(new Date(entry.createdAt), "PPP p")}</span>
+                    <span>Created: {formatDate(entry.createdAt)}</span>
                  </div>
               </div>
           </div>
@@ -211,7 +224,7 @@ export function PasswordDetailSheet({
               <Button
                 variant="outline"
                 size="icon"
-                onClick={() => onToggleFavorite(entry.id)}
+                onClick={() => onToggleFavorite(entry.id, entry.isFavorite)}
                 aria-label={
                   entry.isFavorite ? "Remove from favorites" : "Add to favorites"
                 }

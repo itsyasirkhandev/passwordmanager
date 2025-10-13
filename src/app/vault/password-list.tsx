@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { Eye, EyeOff, PlusCircle, Copy, Check, Search, X, MoreHorizontal, Pencil, Trash2, Undo, ShieldAlert, KeyRound, Star, Filter, SortAsc, Download } from "lucide-react";
+import { Eye, EyeOff, PlusCircle, Copy, Check, Search, X, MoreHorizontal, Pencil, Trash2, Undo, ShieldAlert, KeyRound, Star, Filter, SortAsc, Download, Loader } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -46,6 +46,8 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { PasswordStrengthPill } from "@/components/password-strength-indicator";
 import { ExportDialog } from "./export-dialog";
+import { useVault } from "@/context/vault-context";
+import { Skeleton } from "@/components/ui/skeleton";
 
 
 export type { PasswordEntry };
@@ -54,14 +56,22 @@ type SortOption = "updatedAt_desc" | "updatedAt_asc" | "createdAt_desc" | "creat
 type FilterOption = "all" | "favorites";
 
 type PasswordListProps = {
-  passwords: PasswordEntry[];
-  setPasswords: React.Dispatch<React.SetStateAction<PasswordEntry[]>>;
+  // Passwords are now managed by the VaultContext
   selectedFolderId: string | null;
   selectedTag: string | null;
   folders: Folder[];
 };
 
-export default function PasswordList({ passwords, setPasswords, selectedFolderId, selectedTag, folders }: PasswordListProps) {
+export default function PasswordList({ selectedFolderId, selectedTag, folders }: PasswordListProps) {
+  const { 
+    passwords, 
+    isLoadingPasswords,
+    addOrUpdatePassword, 
+    deletePassword,
+    restorePassword,
+    toggleFavorite 
+  } = useVault();
+
   const [revealedPasswords, setRevealedPasswords] = useState<Record<string, boolean>>({});
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
@@ -82,13 +92,13 @@ export default function PasswordList({ passwords, setPasswords, selectedFolderId
       ? passwords.filter(p => p.deletedAt)
       : passwords.filter(p => !p.deletedAt);
 
-    if (activeFilter === 'favorites') {
+    if (activeFilter === 'favorites' && !isTrashView) {
         filtered = filtered.filter(p => p.isFavorite);
     }
     
     if (selectedFolderId && selectedFolderId !== 'trash' && selectedFolderId !== 'favorites') {
       filtered = filtered.filter(p => p.folderId === selectedFolderId);
-    } else if (selectedFolderId === 'favorites') {
+    } else if (selectedFolderId === 'favorites' && !isTrashView) {
         filtered = filtered.filter(p => p.isFavorite);
     } else if (selectedTag) {
       filtered = filtered.filter(p => p.tags?.includes(selectedTag));
@@ -106,6 +116,9 @@ export default function PasswordList({ passwords, setPasswords, selectedFolderId
       );
     }
 
+    // Convert Firestore Timestamps to Dates for sorting
+    const toDate = (val: any) => val?.toDate ? val.toDate() : val;
+    
     return [...filtered].sort((a, b) => {
         switch (sortOption) {
             case 'serviceName_asc':
@@ -113,23 +126,22 @@ export default function PasswordList({ passwords, setPasswords, selectedFolderId
             case 'serviceName_desc':
                 return b.serviceName.localeCompare(a.serviceName);
             case 'createdAt_asc':
-                return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+                return toDate(a.createdAt).getTime() - toDate(b.createdAt).getTime();
             case 'createdAt_desc':
-                return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+                return toDate(b.createdAt).getTime() - toDate(a.createdAt).getTime();
             case 'updatedAt_asc':
-                return new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime();
+                return toDate(a.updatedAt).getTime() - toDate(b.updatedAt).getTime();
             case 'updatedAt_desc':
             default:
-                return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+                return toDate(b.updatedAt).getTime() - toDate(a.updatedAt).getTime();
         }
     });
   }, [passwords, searchQuery, selectedFolderId, selectedTag, isTrashView, sortOption, activeFilter]);
 
   useEffect(() => {
     setSelectedIds([]);
-  }, [selectedFolderId, selectedTag, searchQuery, sortOption, activeFilter]);
+  }, [selectedFolderId, selectedTag, searchQuery, sortOption, activeFilter, passwords]);
   
-  // Close detail view if the item is no longer in the filtered list
   useEffect(() => {
     if (viewingPassword && !filteredAndSortedPasswords.find(p => p.id === viewingPassword.id)) {
       setViewingPassword(null);
@@ -176,18 +188,8 @@ export default function PasswordList({ passwords, setPasswords, selectedFolderId
     setViewingPassword(password);
   }
 
-  const handleSubmitPassword = (data: PasswordFormValues) => {
-    const now = new Date();
-    if (editingPassword) {
-      const updatedPassword = { ...editingPassword, ...data, updatedAt: now };
-      setPasswords(passwords.map(p => p.id === editingPassword.id ? updatedPassword : p));
-      setViewingPassword(updatedPassword); // Update detail view if open
-      toast({ title: "Success", description: "Password updated." });
-    } else {
-      const newPassword: PasswordEntry = { ...data, id: String(Date.now()), createdAt: now, updatedAt: now };
-      setPasswords([...passwords, newPassword]);
-      toast({ title: "Success", description: "Password added to your vault." });
-    }
+  const handleSubmitPassword = async (data: PasswordFormValues) => {
+    await addOrUpdatePassword(data, editingPassword?.id);
     setIsFormOpen(false);
     setEditingPassword(null);
   };
@@ -212,19 +214,12 @@ export default function PasswordList({ passwords, setPasswords, selectedFolderId
     setDeleteConfirmation({ ids, permanent });
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!deleteConfirmation) return;
     const { ids, permanent } = deleteConfirmation;
-
-    if (permanent) {
-        setPasswords(prev => prev.filter(p => !ids.includes(p.id)));
-        toast({ title: `${ids.length} item(s) permanently deleted.` });
-    } else {
-        const now = new Date();
-        setPasswords(prev => prev.map(p => ids.includes(p.id) ? { ...p, deletedAt: now, updatedAt: now } : p));
-        toast({ title: `${ids.length} item(s) moved to trash.` });
-    }
     
+    await Promise.all(ids.map(id => deletePassword(id, permanent)));
+
     if (viewingPassword && ids.includes(viewingPassword.id)) {
       setViewingPassword(null);
     }
@@ -234,26 +229,19 @@ export default function PasswordList({ passwords, setPasswords, selectedFolderId
   };
 
   const handleRestore = (ids: string[]) => {
-    const now = new Date();
-    setPasswords(prev => prev.map(p => ids.includes(p.id) ? { ...p, deletedAt: undefined, updatedAt: now } : p));
-    toast({ title: `${ids.length} item(s) restored.` });
+    Promise.all(ids.map(id => restorePassword(id)));
     setSelectedIds([]);
   }
 
-  const toggleFavorite = (id: string) => {
-    const now = new Date();
-    const newPasswords = passwords.map(p => p.id === id ? { ...p, isFavorite: !p.isFavorite, updatedAt: now } : p);
-    setPasswords(newPasswords);
-    if (viewingPassword?.id === id) {
-        setViewingPassword(newPasswords.find(p => p.id === id) || null);
-    }
+  const handleToggleFavorite = (id: string, isFavorite: boolean) => {
+    toggleFavorite(id, isFavorite);
   };
 
   const clearFilters = () => {
     setActiveFilter("all");
     setSearchQuery("");
   }
-
+  
   const BulkActions = () => {
       if(selectedIds.length === 0) return null;
 
@@ -292,6 +280,41 @@ export default function PasswordList({ passwords, setPasswords, selectedFolderId
     return "All Passwords";
   };
   const folderTitle = getTitle();
+
+  const renderSkeleton = () => (
+    <div className="border-t sm:border sm:rounded-md flex-1">
+      <Table>
+        <TableHeader className="hidden md:table-header-group">
+          <TableRow>
+            <TableHead className="w-[50px]"><Skeleton className="h-4 w-4" /></TableHead>
+            <TableHead className="w-[30px]"></TableHead>
+            <TableHead className="w-[25%]"><Skeleton className="h-4 w-20" /></TableHead>
+            <TableHead><Skeleton className="h-4 w-24" /></TableHead>
+            <TableHead><Skeleton className="h-4 w-24" /></TableHead>
+            <TableHead className="w-[100px] text-right"></TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {Array.from({ length: 5 }).map((_, i) => (
+            <TableRow key={i} className="md:table-row flex flex-col md:flex-row p-4 md:p-0 border-b">
+              <TableCell className="w-[50px] hidden md:table-cell"><Skeleton className="h-4 w-4" /></TableCell>
+              <TableCell className="w-[30px] hidden md:table-cell"><Skeleton className="h-6 w-6 rounded-full" /></TableCell>
+              <TableCell className="p-0 md:p-4">
+                <div className="flex items-center gap-2">
+                  <div className="md:hidden"><Skeleton className="h-4 w-4" /></div>
+                  <Skeleton className="h-5 w-32" />
+                </div>
+                <Skeleton className="h-4 w-40 mt-2 ml-6 md:ml-0" />
+              </TableCell>
+              <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-full" /></TableCell>
+              <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-full" /></TableCell>
+              <TableCell className="hidden md:table-cell"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
 
   return (
     <>
@@ -399,199 +422,201 @@ export default function PasswordList({ passwords, setPasswords, selectedFolderId
                 <BulkActions />
             </div>
           )}
-          <div className="border-t sm:border sm:rounded-md flex-1">
-            <Table>
-              <TableHeader className="hidden md:table-header-group">
-                <TableRow>
-                  <TableHead className="w-[50px]">
-                     <Checkbox
-                        checked={filteredAndSortedPasswords.length > 0 && selectedIds.length === filteredAndSortedPasswords.length}
-                        onCheckedChange={(checked) => handleSelectAll(Boolean(checked))}
-                        aria-label="Select all"
-                    />
-                  </TableHead>
-                  <TableHead className="w-[30px]"></TableHead>
-                  <TableHead className="w-[25%]">Service</TableHead>
-                  <TableHead>Username</TableHead>
-                  <TableHead>Password</TableHead>
-                  <TableHead className="w-[100px] text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredAndSortedPasswords.map((entry) => (
-                  <TableRow 
-                    key={entry.id} 
-                    data-state={selectedIds.includes(entry.id) && "selected"}
-                    className="cursor-pointer md:table-row flex flex-col md:flex-row p-4 md:p-0 border-b"
-                    onClick={() => handleOpenDetailView(entry)}
-                  >
-                    <TableCell className="w-[50px] hidden md:table-cell" onClick={(e) => e.stopPropagation()}>
-                         <Checkbox
-                            checked={selectedIds.includes(entry.id)}
-                            onCheckedChange={(checked) => handleSelect(entry.id, Boolean(checked))}
-                            aria-label={`Select ${entry.serviceName}`}
-                        />
-                    </TableCell>
-                    <TableCell className="w-[30px] hidden md:table-cell" onClick={(e) => e.stopPropagation()}>
-                        <Button
+          {isLoadingPasswords ? renderSkeleton() : (
+            <div className="border-t sm:border sm:rounded-md flex-1">
+              <Table>
+                <TableHeader className="hidden md:table-header-group">
+                  <TableRow>
+                    <TableHead className="w-[50px]">
+                       <Checkbox
+                          checked={filteredAndSortedPasswords.length > 0 && selectedIds.length === filteredAndSortedPasswords.length}
+                          onCheckedChange={(checked) => handleSelectAll(Boolean(checked))}
+                          aria-label="Select all"
+                      />
+                    </TableHead>
+                    <TableHead className="w-[30px]"></TableHead>
+                    <TableHead className="w-[25%]">Service</TableHead>
+                    <TableHead>Username</TableHead>
+                    <TableHead>Password</TableHead>
+                    <TableHead className="w-[100px] text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredAndSortedPasswords.map((entry) => (
+                    <TableRow 
+                      key={entry.id} 
+                      data-state={selectedIds.includes(entry.id) && "selected"}
+                      className="cursor-pointer md:table-row flex flex-col md:flex-row p-4 md:p-0 border-b"
+                      onClick={() => handleOpenDetailView(entry)}
+                    >
+                      <TableCell className="w-[50px] hidden md:table-cell" onClick={(e) => e.stopPropagation()}>
+                           <Checkbox
+                              checked={selectedIds.includes(entry.id)}
+                              onCheckedChange={(checked) => handleSelect(entry.id, Boolean(checked))}
+                              aria-label={`Select ${entry.serviceName}`}
+                          />
+                      </TableCell>
+                      <TableCell className="w-[30px] hidden md:table-cell" onClick={(e) => e.stopPropagation()}>
+                          <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleToggleFavorite(entry.id, entry.isFavorite)}
+                              aria-label={entry.isFavorite ? "Remove from favorites" : "Add to favorites"}
+                              className="h-8 w-8"
+                          >
+                              <Star className={cn("h-4 w-4", entry.isFavorite ? "text-yellow-400 fill-yellow-400" : "text-muted-foreground")} />
+                          </Button>
+                      </TableCell>
+                      <TableCell className="font-medium p-0 md:p-4">
+                        <div className="flex items-center justify-between">
+                           <div className="flex items-center gap-2">
+                              <div className="md:hidden" onClick={(e) => e.stopPropagation()}>
+                                  <Checkbox
+                                      checked={selectedIds.includes(entry.id)}
+                                      onCheckedChange={(checked) => handleSelect(entry.id, Boolean(checked))}
+                                      aria-label={`Select ${entry.serviceName}`}
+                                  />
+                              </div>
+                              <span className="font-semibold text-base">{entry.serviceName}</span>
+                           </div>
+                          <div className="md:hidden" onClick={(e) => e.stopPropagation()}>
+                              <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                      <Button variant="ghost" size="icon">
+                                          <MoreHorizontal />
+                                      </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                      {!isTrashView && (
+                                          <>
+                                              <DropdownMenuItem onClick={() => handleOpenEditForm(entry)}>
+                                                  <Pencil className="mr-2" /> Edit
+                                              </DropdownMenuItem>
+                                              <DropdownMenuItem onClick={() => handleToggleFavorite(entry.id, entry.isFavorite)}>
+                                                  <Star className={cn("mr-2", entry.isFavorite ? "text-yellow-400 fill-yellow-400" : "")} /> 
+                                                  {entry.isFavorite ? "Unfavorite" : "Favorite"}
+                                              </DropdownMenuItem>
+                                              <DropdownMenuSeparator />
+                                              <DropdownMenuItem onClick={() => handleCopy(entry.username, `${entry.id}-username`)}>
+                                                  <Copy className="mr-2" /> Copy Username
+                                              </DropdownMenuItem>
+                                              <DropdownMenuItem onClick={() => handleCopy(entry.password, `${entry.id}-password`, true)}>
+                                                  <KeyRound className="mr-2" /> Copy Password
+                                              </DropdownMenuItem>
+                                              <DropdownMenuSeparator />
+                                              <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDeleteRequest([entry.id])}>
+                                                  <Trash2 className="mr-2" /> Move to Trash
+                                              </DropdownMenuItem>
+                                          </>
+                                      )}
+                                      {isTrashView && (
+                                          <>
+                                              <DropdownMenuItem onClick={() => handleRestore([entry.id])}>
+                                                  <Undo className="mr-2" /> Restore
+                                              </DropdownMenuItem>
+                                              <DropdownMenuSeparator />
+                                              <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDeleteRequest([entry.id], true)}>
+                                                  <ShieldAlert className="mr-2" /> Delete Permanently
+                                              </DropdownMenuItem>
+                                          </>
+                                      )}
+                                  </DropdownMenuContent>
+                              </DropdownMenu>
+                          </div>
+                        </div>
+                        <div className="text-muted-foreground text-sm pl-8 md:pl-0">{entry.username}</div>
+                         {entry.tags && entry.tags.length > 0 && !isTrashView && (
+                            <div className="flex flex-wrap gap-1 mt-2 pl-8 md:pl-0">
+                              {entry.tags.map(tag => (
+                                <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>
+                              ))}
+                            </div>
+                          )}
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-mono flex-1 truncate">
+                            {entry.username}
+                          </span>
+                          <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => toggleFavorite(entry.id)}
-                            aria-label={entry.isFavorite ? "Remove from favorites" : "Add to favorites"}
-                            className="h-8 w-8"
-                        >
-                            <Star className={cn("h-4 w-4", entry.isFavorite ? "text-yellow-400 fill-yellow-400" : "text-muted-foreground")} />
-                        </Button>
-                    </TableCell>
-                    <TableCell className="font-medium p-0 md:p-4">
-                      <div className="flex items-center justify-between">
-                         <div className="flex items-center gap-2">
-                            <div className="md:hidden" onClick={(e) => e.stopPropagation()}>
-                                <Checkbox
-                                    checked={selectedIds.includes(entry.id)}
-                                    onCheckedChange={(checked) => handleSelect(entry.id, Boolean(checked))}
-                                    aria-label={`Select ${entry.serviceName}`}
-                                />
-                            </div>
-                            <span className="font-semibold text-base">{entry.serviceName}</span>
-                         </div>
-                        <div className="md:hidden" onClick={(e) => e.stopPropagation()}>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon">
-                                        <MoreHorizontal />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                    {!isTrashView && (
-                                        <>
-                                            <DropdownMenuItem onClick={() => handleOpenEditForm(entry)}>
-                                                <Pencil className="mr-2" /> Edit
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => toggleFavorite(entry.id)}>
-                                                <Star className={cn("mr-2", entry.isFavorite ? "text-yellow-400 fill-yellow-400" : "")} /> 
-                                                {entry.isFavorite ? "Unfavorite" : "Favorite"}
-                                            </DropdownMenuItem>
-                                            <DropdownMenuSeparator />
-                                            <DropdownMenuItem onClick={() => handleCopy(entry.username, `${entry.id}-username`)}>
-                                                <Copy className="mr-2" /> Copy Username
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => handleCopy(entry.password, `${entry.id}-password`, true)}>
-                                                <KeyRound className="mr-2" /> Copy Password
-                                            </DropdownMenuItem>
-                                            <DropdownMenuSeparator />
-                                            <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDeleteRequest([entry.id])}>
-                                                <Trash2 className="mr-2" /> Move to Trash
-                                            </DropdownMenuItem>
-                                        </>
-                                    )}
-                                    {isTrashView && (
-                                        <>
-                                            <DropdownMenuItem onClick={() => handleRestore([entry.id])}>
-                                                <Undo className="mr-2" /> Restore
-                                            </DropdownMenuItem>
-                                            <DropdownMenuSeparator />
-                                            <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDeleteRequest([entry.id], true)}>
-                                                <ShieldAlert className="mr-2" /> Delete Permanently
-                                            </DropdownMenuItem>
-                                        </>
-                                    )}
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        </div>
-                      </div>
-                      <div className="text-muted-foreground text-sm pl-8 md:pl-0">{entry.username}</div>
-                       {entry.tags && entry.tags.length > 0 && !isTrashView && (
-                          <div className="flex flex-wrap gap-1 mt-2 pl-8 md:pl-0">
-                            {entry.tags.map(tag => (
-                              <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>
-                            ))}
-                          </div>
-                        )}
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="font-mono flex-1 truncate">
-                          {entry.username}
-                        </span>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={(e) => { e.stopPropagation(); handleCopy(entry.username, `${entry.id}-username`); }}
-                          aria-label="Copy username"
-                        >
-                          {copiedField === `${entry.id}-username` ? <Check className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
-                        </Button>
-                      </div>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell">
-                      <div className="flex items-center justify-between gap-2">
-                         <div className="flex flex-col gap-1.5 flex-1">
-                           <span className="font-mono">
-                             {revealedPasswords[entry.id] ? entry.password : "••••••••••••"}
-                           </span>
-                           {!isTrashView && <PasswordStrengthPill password={entry.password} />}
-                         </div>
-                        <div className="flex items-center">
-                          <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); togglePasswordVisibility(entry.id); }} aria-label={revealedPasswords[entry.id] ? "Hide password" : "Show password"}>
-                            {revealedPasswords[entry.id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            onClick={(e) => { e.stopPropagation(); handleCopy(entry.username, `${entry.id}-username`); }}
+                            aria-label="Copy username"
+                          >
+                            {copiedField === `${entry.id}-username` ? <Check className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
                           </Button>
-                           <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleCopy(entry.password, `${entry.id}-password`, true); }} aria-label="Copy password">
-                             {copiedField === `${entry.id}-password` ? <Check className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
-                           </Button>
                         </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right hidden md:table-cell" onClick={(e) => e.stopPropagation()}>
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon">
-                                    <MoreHorizontal />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                {!isTrashView && (
-                                    <>
-                                        <DropdownMenuItem onClick={() => handleOpenEditForm(entry)}>
-                                            <Pencil className="mr-2" /> Edit
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => toggleFavorite(entry.id)}>
-                                            <Star className={cn("mr-2", entry.isFavorite ? "text-yellow-400 fill-yellow-400" : "")} /> 
-                                            {entry.isFavorite ? "Unfavorite" : "Favorite"}
-                                        </DropdownMenuItem>
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuItem onClick={() => handleCopy(entry.username, `${entry.id}-username`)}>
-                                            <Copy className="mr-2" /> Copy Username
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => handleCopy(entry.password, `${entry.id}-password`, true)}>
-                                            <KeyRound className="mr-2" /> Copy Password
-                                        </DropdownMenuItem>
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDeleteRequest([entry.id])}>
-                                            <Trash2 className="mr-2" /> Move to Trash
-                                        </DropdownMenuItem>
-                                    </>
-                                )}
-                                {isTrashView && (
-                                    <>
-                                        <DropdownMenuItem onClick={() => handleRestore([entry.id])}>
-                                            <Undo className="mr-2" /> Restore
-                                        </DropdownMenuItem>
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDeleteRequest([entry.id], true)}>
-                                            <ShieldAlert className="mr-2" /> Delete Permanently
-                                        </DropdownMenuItem>
-                                    </>
-                                )}
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-          {(filteredAndSortedPasswords.length === 0) && (
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        <div className="flex items-center justify-between gap-2">
+                           <div className="flex flex-col gap-1.5 flex-1">
+                             <span className="font-mono">
+                               {revealedPasswords[entry.id] ? entry.password : "••••••••••••"}
+                             </span>
+                             {!isTrashView && <PasswordStrengthPill password={entry.password} />}
+                           </div>
+                          <div className="flex items-center">
+                            <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); togglePasswordVisibility(entry.id); }} aria-label={revealedPasswords[entry.id] ? "Hide password" : "Show password"}>
+                              {revealedPasswords[entry.id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </Button>
+                             <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleCopy(entry.password, `${entry.id}-password`, true); }} aria-label="Copy password">
+                               {copiedField === `${entry.id}-password` ? <Check className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
+                             </Button>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right hidden md:table-cell" onClick={(e) => e.stopPropagation()}>
+                          <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon">
+                                      <MoreHorizontal />
+                                  </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                  {!isTrashView && (
+                                      <>
+                                          <DropdownMenuItem onClick={() => handleOpenEditForm(entry)}>
+                                              <Pencil className="mr-2" /> Edit
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem onClick={() => handleToggleFavorite(entry.id, entry.isFavorite)}>
+                                              <Star className={cn("mr-2", entry.isFavorite ? "text-yellow-400 fill-yellow-400" : "")} /> 
+                                              {entry.isFavorite ? "Unfavorite" : "Favorite"}
+                                          </DropdownMenuItem>
+                                          <DropdownMenuSeparator />
+                                          <DropdownMenuItem onClick={() => handleCopy(entry.username, `${entry.id}-username`)}>
+                                              <Copy className="mr-2" /> Copy Username
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem onClick={() => handleCopy(entry.password, `${entry.id}-password`, true)}>
+                                              <KeyRound className="mr-2" /> Copy Password
+                                          </DropdownMenuItem>
+                                          <DropdownMenuSeparator />
+                                          <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDeleteRequest([entry.id])}>
+                                              <Trash2 className="mr-2" /> Move to Trash
+                                          </DropdownMenuItem>
+                                      </>
+                                  )}
+                                  {isTrashView && (
+                                      <>
+                                          <DropdownMenuItem onClick={() => handleRestore([entry.id])}>
+                                              <Undo className="mr-2" /> Restore
+                                          </DropdownMenuItem>
+                                          <DropdownMenuSeparator />
+                                          <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDeleteRequest([entry.id], true)}>
+                                              <ShieldAlert className="mr-2" /> Delete Permanently
+                                          </DropdownMenuItem>
+                                      </>
+                                  )}
+                              </DropdownMenuContent>
+                          </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+          {(!isLoadingPasswords && filteredAndSortedPasswords.length === 0) && (
             <div className="text-center py-12 text-muted-foreground flex-1 flex flex-col justify-center items-center">
               {searchQuery ? (
                 <>
@@ -629,7 +654,7 @@ export default function PasswordList({ passwords, setPasswords, selectedFolderId
         onOpenChange={(open) => !open && setViewingPassword(null)}
         onEdit={handleOpenEditForm}
         onDelete={(id) => handleDeleteRequest([id], isTrashView)}
-        onToggleFavorite={toggleFavorite}
+        onToggleFavorite={(id, isFavorite) => handleToggleFavorite(id, isFavorite)}
         onCopy={handleCopy}
         isTrashView={isTrashView}
         onRestore={id => handleRestore([id])}

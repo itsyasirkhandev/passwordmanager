@@ -11,7 +11,7 @@ import withAuth from "@/components/withAuth";
 
 
 function VaultPage() {
-  const { folders, addFolder, selectFolder, selectTag, allTags, selectedFolderId, selectedTag, passwords, setPasswords } = useVault();
+  const { folders, addFolder, selectFolder, selectTag, allTags, selectedFolderId, selectedTag } = useVault();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true);
 
@@ -55,8 +55,6 @@ function VaultPage() {
         </aside>
         <div className="p-0 sm:p-6 lg:p-8 flex flex-col overflow-hidden">
             <PasswordList 
-              passwords={passwords}
-              setPasswords={setPasswords}
               selectedFolderId={selectedFolderId}
               selectedTag={selectedTag}
               folders={folders} 

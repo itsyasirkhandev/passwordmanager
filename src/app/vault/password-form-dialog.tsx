@@ -31,6 +31,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import type { Folder } from "@/components/folder-sidebar";
 import { TagInput } from "@/components/tag-input";
 import { PasswordStrengthIndicator } from "@/components/password-strength-indicator";
+import { Timestamp } from "firebase/firestore";
 
 const passwordSchema = z.object({
   serviceName: z.string().min(1, "Service name is required."),
@@ -45,9 +46,9 @@ const passwordSchema = z.object({
 
 export type PasswordEntry = z.infer<typeof passwordSchema> & { 
   id: string;
-  createdAt: Date;
-  updatedAt: Date;
-  deletedAt?: Date;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  deletedAt?: Timestamp | null;
 };
 export type PasswordFormValues = z.infer<typeof passwordSchema>;
 
@@ -92,7 +93,7 @@ export function PasswordFormDialog({
         username: "",
         password: "",
         notes: "",
-        folderId: defaultFolderId && defaultFolderId !== 'trash' ? defaultFolderId : (folders[0]?.id ?? undefined),
+        folderId: defaultFolderId && defaultFolderId !== 'trash' && defaultFolderId !== 'favorites' ? defaultFolderId : (folders[0]?.id ?? 'none'),
         tags: [],
         isFavorite: false,
       });
@@ -100,8 +101,11 @@ export function PasswordFormDialog({
   }, [initialData, form, defaultFolderId, folders]);
 
   const handleFormSubmit = (values: PasswordFormValues) => {
-    onSubmit(values);
-    form.reset();
+    const dataToSubmit = {
+        ...values,
+        folderId: values.folderId === 'none' ? undefined : values.folderId
+    }
+    onSubmit(dataToSubmit);
     onOpenChange(false);
   };
   
@@ -126,7 +130,7 @@ export function PasswordFormDialog({
         </DialogHeader>
         <div className="overflow-y-auto pr-6 -mr-6 pl-1 -ml-1">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4 pr-5 pl-5">
+          <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4 px-5">
             <FormField
               control={form.control}
               name="serviceName"
@@ -253,7 +257,7 @@ export function PasswordFormDialog({
                 </FormItem>
               )}
             />
-            <DialogFooter className="pt-4">
+            <DialogFooter className="pt-4 gap-2 sm:gap-0">
                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
               <Button type="submit">{isEditing ? "Save Changes" : "Save Password"}</Button>
             </DialogFooter>
