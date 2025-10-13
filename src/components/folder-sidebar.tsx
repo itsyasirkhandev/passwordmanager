@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Input } from "./ui/input";
 import { Separator } from "./ui/separator";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 export type Folder = {
   id: string;
@@ -234,7 +234,9 @@ export function MobileSidebar({ isOpen, onOpenChange, ...props}: MobileSidebarPr
         <Sheet open={isOpen} onOpenChange={onOpenChange}>
             <SheetContent side="left" className="p-0 w-full max-w-xs">
                 <div className="p-4 flex flex-col gap-4 h-full">
-                    <h2 className="text-2xl font-bold tracking-tight px-2">CipherVault</h2>
+                    <SheetHeader className="px-2">
+                      <SheetTitle className="text-2xl font-bold tracking-tight text-left">CipherVault</SheetTitle>
+                    </SheetHeader>
                     <FolderSidebar {...props} onClose={() => onOpenChange(false)} />
                 </div>
             </SheetContent>
