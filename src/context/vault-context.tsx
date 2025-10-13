@@ -39,10 +39,17 @@ const decryptPassword = (encryptedPassword: string): string => {
     try {
         const bytes = CryptoJS.AES.decrypt(encryptedPassword, ENCRYPTION_KEY);
         const originalText = bytes.toString(CryptoJS.enc.Utf8);
-        return originalText || encryptedPassword; // Return original encrypted if decryption fails
+        
+        // If decryption results in an empty string, it means the password was not
+        // properly encrypted or is plaintext. Return the original value.
+        if (!originalText) {
+            return encryptedPassword;
+        }
+
+        return originalText;
     } catch (e) {
-        console.error("Failed to decrypt password", e);
-        return encryptedPassword; // Return as-is on error
+        console.error("Failed to decrypt password, returning original value.", e);
+        return encryptedPassword; // Return as-is on any error
     }
 };
 
@@ -200,7 +207,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     const optimisticEntry: PasswordEntry = {
         ...(id ? passwords.find(p => p.id === id)! : { id: docRef.id, createdAt: now }),
         ...data,
-        password: encryptPassword(data.password), // Encrypt here for optimistic update
+        password: data.password, // Keep plaintext for optimistic update, will be encrypted for DB
         updatedAt: now,
     };
     
@@ -208,9 +215,9 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     setPasswords(prev => {
         const existing = prev.find(p => p.id === optimisticEntry.id);
         if (existing) {
-            return prev.map(p => p.id === optimisticEntry.id ? optimisticEntry : p);
+            return prev.map(p => p.id === optimisticEntry.id ? { ...optimisticEntry, password: encryptPassword(data.password) } : p);
         }
-        return [...prev, optimisticEntry];
+        return [...prev, { ...optimisticEntry, password: encryptPassword(data.password) }];
     });
 
 
