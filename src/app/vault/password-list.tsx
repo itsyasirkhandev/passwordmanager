@@ -77,7 +77,7 @@ export default function PasswordList({ selectedFolderId, selectedTag, folders }:
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [editingPassword, setEditingPassword] = useState<PasswordEntry | null>(null);
-  const [viewingPassword, setViewingPassword] = useState<PasswordEntry | null>(null);
+  const [viewingPasswordId, setViewingPasswordId] = useState<string | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -138,16 +138,21 @@ export default function PasswordList({ selectedFolderId, selectedTag, folders }:
         }
     });
   }, [passwords, searchQuery, selectedFolderId, selectedTag, isTrashView, sortOption, activeFilter]);
+  
+  const viewingPassword = useMemo(() => {
+    if (!viewingPasswordId) return null;
+    return passwords.find(p => p.id === viewingPasswordId) ?? null;
+  }, [viewingPasswordId, passwords]);
 
   useEffect(() => {
     setSelectedIds([]);
   }, [selectedFolderId, selectedTag, searchQuery, sortOption, activeFilter, passwords]);
   
   useEffect(() => {
-    if (viewingPassword && !filteredAndSortedPasswords.find(p => p.id === viewingPassword.id)) {
-      setViewingPassword(null);
+    if (viewingPasswordId && !filteredAndSortedPasswords.find(p => p.id === viewingPasswordId)) {
+      setViewingPasswordId(null);
     }
-  }, [viewingPassword, filteredAndSortedPasswords]);
+  }, [viewingPasswordId, filteredAndSortedPasswords]);
 
   const handleCopy = (text: string, fieldId: string, isPassword = false) => {
     navigator.clipboard.writeText(text).then(
@@ -182,11 +187,11 @@ export default function PasswordList({ selectedFolderId, selectedTag, folders }:
   const handleOpenEditForm = (password: PasswordEntry) => {
     setEditingPassword(password);
     setIsFormOpen(true);
-    setViewingPassword(null);
+    setViewingPasswordId(null);
   }
   
   const handleOpenDetailView = (password: PasswordEntry) => {
-    setViewingPassword(password);
+    setViewingPasswordId(password.id);
   }
 
   const handleSubmitPassword = async (data: PasswordFormValues) => {
@@ -221,8 +226,8 @@ export default function PasswordList({ selectedFolderId, selectedTag, folders }:
     
     await Promise.all(ids.map(id => deletePassword(id, permanent)));
 
-    if (viewingPassword && ids.includes(viewingPassword.id)) {
-      setViewingPassword(null);
+    if (viewingPasswordId && ids.includes(viewingPasswordId)) {
+      setViewingPasswordId(null);
     }
     
     setSelectedIds([]);
@@ -652,7 +657,7 @@ export default function PasswordList({ selectedFolderId, selectedTag, folders }:
       <PasswordDetailSheet
         entry={viewingPassword}
         isOpen={!!viewingPassword}
-        onOpenChange={(open) => !open && setViewingPassword(null)}
+        onOpenChange={(open) => !open && setViewingPasswordId(null)}
         onEdit={handleOpenEditForm}
         onDelete={(id) => handleDeleteRequest([id], isTrashView)}
         onToggleFavorite={(id, isFavorite) => handleToggleFavorite(id, isFavorite)}
