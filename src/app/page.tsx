@@ -56,12 +56,12 @@ export default function LoginPage() {
     <div className="flex flex-col min-h-screen bg-background">
       <Header />
       <main className="flex-1 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md shadow-2xl">
+        <Card className="w-full max-w-sm">
           <CardHeader className="text-center">
-            <div className="mx-auto bg-primary/10 text-primary rounded-full p-3 w-fit mb-4">
+            <div className="mx-auto bg-primary/10 text-primary rounded-full p-4 w-fit mb-4">
                 <Lock className="h-8 w-8" />
             </div>
-            <CardTitle className="text-2xl font-bold">Master Password</CardTitle>
+            <CardTitle className="text-2xl">Master Password</CardTitle>
             <CardDescription>
               Enter your master password to unlock your vault.
             </CardDescription>

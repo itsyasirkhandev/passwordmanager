@@ -11,23 +11,29 @@ export function PasswordStrengthIndicator({ password }: PasswordStrengthIndicato
   const strength = calculatePasswordStrength(password || "");
 
   if (!password) {
-    return null;
+    return <div className="h-1.5 w-full bg-muted rounded-full" />;
   }
 
   return (
-    <div className="space-y-1">
-      <div className="flex gap-1">
+    <div className="space-y-2">
+      <div className="flex gap-2">
         {Array.from({ length: 4 }).map((_, i) => (
           <div
             key={i}
             className={cn(
               "h-1.5 flex-1 rounded-full",
-              i < strength.score ? strength.color : "bg-muted"
+              i < strength.score ? strength.color.replace('bg-','bg-') : "bg-muted"
             )}
           />
         ))}
       </div>
-      <p className="text-xs font-medium" style={{ color: strength.color.replace('bg-', '').replace('-500', '') }}>
+      <p className={cn(
+        "text-xs font-medium",
+        strength.score === 1 && "text-red-500",
+        strength.score === 2 && "text-yellow-500",
+        strength.score === 3 && "text-primary",
+        strength.score >= 4 && "text-green-500",
+      )}>
         {strength.label}
       </p>
     </div>

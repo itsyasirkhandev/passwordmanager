@@ -29,7 +29,7 @@ export const calculatePasswordStrength = (password: string): PasswordStrength =>
     case 2:
       return { score, label: 'Medium', color: 'bg-yellow-500' };
     case 3:
-      return { score, label: 'Strong', color: 'bg-blue-500' };
+      return { score, label: 'Strong', color: 'bg-primary' };
     case 4:
     case 5:
       return { score: 4, label: 'Very Strong', color: 'bg-green-500' };

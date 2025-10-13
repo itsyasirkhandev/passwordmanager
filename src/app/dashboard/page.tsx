@@ -93,10 +93,6 @@ export default function DashboardPage() {
         isOpen={isMobileSidebarOpen}
         onOpenChange={setIsMobileSidebarOpen}
         folders={folders}
-        specialFolders={[
-          { id: "favorites", name: "Favorites", icon: Star },
-          { id: "trash", name: "Trash", icon: Trash2 },
-        ]}
         tags={allTags}
         selectedFolderId={selectedFolderId}
         selectedTag={selectedTag}
@@ -111,10 +107,6 @@ export default function DashboardPage() {
         <aside className={cn("hidden md:block transition-all duration-300", isDesktopSidebarOpen ? "w-[280px] lg:w-[320px]" : "w-0")}>
            <FolderSidebar
             folders={folders}
-            specialFolders={[
-                { id: "favorites", name: "Favorites", icon: Star },
-                { id: "trash", name: "Trash", icon: Trash2 },
-            ]}
             tags={allTags}
             selectedFolderId={selectedFolderId}
             selectedTag={selectedTag}
