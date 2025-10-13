@@ -32,6 +32,7 @@ import { ShieldAlert, Download } from "lucide-react";
 import { type PasswordEntry } from "./password-list";
 import { type Folder } from "@/components/folder-sidebar";
 import { useToast } from "@/hooks/use-toast";
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 
 const exportSchema = z.object({
   format: z.enum(["csv", "json"]),
@@ -172,6 +173,9 @@ export function ExportDialog({
             Download your password vault as an encrypted file.
           </DialogDescription>
         </DialogHeader>
+        <VisuallyHidden>
+            <DialogTitle>Export Vault</DialogTitle>
+        </VisuallyHidden>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleExport)} className="space-y-4">
             <FormField
