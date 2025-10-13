@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -38,7 +38,7 @@ const loginSchema = z.object({
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
-export default function AuthPage() {
+function AuthForm() {
   const auth = useAuth();
   const { user, isUserLoading } = useUser();
   const router = useRouter();
@@ -267,4 +267,16 @@ export default function AuthPage() {
       </Card>
     </div>
   );
+}
+
+export default function AuthPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex h-screen w-full items-center justify-center bg-background">
+        <Loader className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    }>
+      <AuthForm />
+    </Suspense>
+  )
 }

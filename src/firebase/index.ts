@@ -7,30 +7,33 @@ import { getFirestore } from 'firebase/firestore'
 
 // IMPORTANT: DO NOT MODIFY THIS FUNCTION
 export function initializeFirebase() {
-  if (!getApps().length) {
-    // Important! initializeApp() is called without any arguments because Firebase App Hosting
-    // integrates with the initializeApp() function to provide the environment variables needed to
-    // populate the FirebaseOptions in production. It is critical that we attempt to call initializeApp()
-    // without arguments.
-    let firebaseApp;
-    try {
-      // Attempt to initialize via Firebase App Hosting environment variables
-      firebaseApp = initializeApp();
-    } catch (e) {
-      // Only warn in production because it's normal to use the firebaseConfig to initialize
-      // during development
-      if (process.env.NODE_ENV === "production") {
-        console.warn('Automatic initialization failed. Falling back to firebase config object.', e);
-      }
-      firebaseApp = initializeApp(firebaseConfig);
-    }
-
-    return getSdks(firebaseApp);
+  if (getApps().length) {
+    return getSdks(getApp());
   }
 
-  // If already initialized, return the SDKs with the already initialized App
-  return getSdks(getApp());
+  // During a server-side build (like `next build`), Firebase App Hosting auto-initialization
+  // isn't available. We must rely on the explicit configuration from environment variables.
+  // We check for `window` to differentiate between server-side and client-side execution.
+  if (typeof window === 'undefined') {
+    const app = initializeApp(firebaseConfig);
+    return getSdks(app);
+  }
+
+  // On the client, we first try the automatic initialization provided by Firebase App Hosting.
+  let firebaseApp;
+  try {
+    firebaseApp = initializeApp();
+  } catch (e) {
+    // If auto-init fails (common in local dev), we fall back to the explicit config.
+    if (process.env.NODE_ENV === "production") {
+      console.warn('Automatic Firebase initialization failed. Falling back to firebase config object.', e);
+    }
+    firebaseApp = initializeApp(firebaseConfig);
+  }
+
+  return getSdks(firebaseApp);
 }
+
 
 export function getSdks(firebaseApp: FirebaseApp) {
   return {
