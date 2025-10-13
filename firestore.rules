@@ -1,116 +1,80 @@
 /**
- * @fileoverview Firestore Security Rules for CipherVault.
+ * @fileoverview Firestore Security Rules for CipherVault application.
  *
  * Core Philosophy:
- * This ruleset enforces a strict user-ownership model. Only the authenticated user can access their own data, which includes vaults and credentials.
+ * This ruleset enforces a strict user-ownership model for vaults and credentials.
+ * Each user has exclusive access to their data, achieved through path-based authorization.
  *
  * Data Structure:
- * All data is nested under /users/{userId}, ensuring that all data is scoped to the individual user. Vaults are stored in /users/{userId}/vaults/{vaultId} and credentials in /users/{userId}/vaults/{vaultId}/credentials/{credentialId}.
+ * The data is organized hierarchically under the `/users/{userId}` path:
+ * - `/users/{userId}`: User documents
+ * - `/users/{userId}/vaults/{vaultId}`: Vault documents belonging to the user.
+ * - `/users/{userId}/vaults/{vaultId}/credentials/{credentialId}`: Credential documents within a vault.
  *
  * Key Security Decisions:
- * - User listing is disallowed to protect user privacy.
- * - All write operations are explicitly authorized based on user identity.
- * - Flexible data shapes are allowed during the prototyping phase to allow rapid iteration. Data validation is focused on authorization fields (e.g. userId, vaultId) to maintain relational integrity and ownership.
- *
- * Denormalization for Authorization:
- * The data structure itself enforces ownership through path-based access.
+ * - **Strict Ownership**: Only the authenticated user can create, read, update, or delete data under their `/users/{userId}` path.
+ * - **No User Listing**: Listing all user documents is disallowed to protect user privacy.
+ * - **Path-Based Authorization**:  Authorization is derived from the Firestore path, eliminating the need for `get()` calls to check ownership.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if the user is signed in.
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    // Helper function to check if the user is the owner of the resource via path
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
-
     /**
-     * @description Enforces user-ownership for the /users/{userId} document.
+     * @description Secures the /users/{userId} document.  Allows a user to create their own document, but prevents others from reading or modifying it.
      * @path /users/{userId}
-     * @allow (create) User 'wbBytIZmmtOceyRTRMSORk7USc93' can create their own user document.
-     * @deny (create) User 'anotherUserId' cannot create a document with userId 'wbBytIZmmtOceyRTRMSORk7USc93'.
-     * @allow (get) User 'wbBytIZmmtOceyRTRMSORk7USc93' can read their own user document.
-     * @deny (get) User 'anotherUserId' cannot read user document with userId 'wbBytIZmmtOceyRTRMSORk7USc93'.
-     * @allow (update) User 'wbBytIZmmtOceyRTRMSORk7USc93' can update their own user document.
-     * @deny (update) User 'anotherUserId' cannot update user document with userId 'wbBytIZmmtOceyRTRMSORk7USc93'.
-     * @allow (delete) User 'wbBytIZmmtOceyRTRMSORk7USc93' can delete their own user document.
-     * @deny (delete) User 'anotherUserId' cannot delete user document with userId 'wbBytIZmmtOceyRTRMSORk7USc93'.
-     * @principle Enforces document ownership for all operations.
+     * @allow (create) - User with UID 'user123' can create /users/user123 document.
+     * @deny (get, list, update, delete) - User with UID 'otherUser' cannot read /users/user123.
+     * @principle Enforces document ownership for creation; prevents unauthorized access.
      */
     match /users/{userId} {
-      // Only allow authenticated users to access user documents.
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if false; // Prevent listing of all users.
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
 
-      // Only allow the user to create their own user document.
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == userId;
-
-      // Only allow the owner to update their own user document, and prevent changing the userId.
-      allow update: if isSignedIn() && isOwner(userId) && resource.data.id == request.resource.data.id;
-
-      // Only allow the owner to delete their own user document.
-      allow delete: if isSignedIn() && isOwner(userId);
+      allow get, list: if false;
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update, delete: if false;
     }
 
     /**
-     * @description Enforces user-ownership for the /users/{userId}/vaults/{vaultId} document.
+     * @description Secures the /users/{userId}/vaults/{vaultId} collection. Allows only the owner to create, read, update, or delete vaults within their own user path.
      * @path /users/{userId}/vaults/{vaultId}
-     * @allow (create) User 'wbBytIZmmtOceyRTRMSORk7USc93' can create a vault under their userId.
-     * @deny (create) User 'anotherUserId' cannot create a vault under userId 'wbBytIZmmtOceyRTRMSORk7USc93'.
-     * @allow (get) User 'wbBytIZmmtOceyRTRMSORk7USc93' can read their own vault.
-     * @deny (get) User 'anotherUserId' cannot read vault with userId 'wbBytIZmmtOceyRTRMSORk7USc93'.
-     * @allow (update) User 'wbBytIZmmtOceyRTRMSORk7USc93' can update their own vault.
-     * @deny (update) User 'anotherUserId' cannot update vault with userId 'wbBytIZmmtOceyRTRMSORk7USc93'.
-     * @allow (delete) User 'wbBytIZmmtOceyRTRMSORk7USc93' can delete their own vault.
-     * @deny (delete) User 'anotherUserId' cannot delete vault with userId 'wbBytIZmmtOceyRTRMSORk7USc93'.
-     * @principle Enforces document ownership for all operations.
+     * @allow (create) - User with UID 'user123' can create a vault under /users/user123/vaults/vault123.
+     * @allow (get, list) - User with UID 'user123' can read vault with ID vault123 from the  /users/user123/vaults/vault123 path
+     * @deny (create, get, list, update, delete) - User with UID 'otherUser' cannot access vaults under /users/user123.
+     * @principle Enforces path-based ownership for vaults.
      */
     match /users/{userId}/vaults/{vaultId} {
-      // Only allow authenticated users to access vault documents.
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if isSignedIn() && isOwner(userId);
-
-      // Only allow the user to create their own vault document, userId in path must match userId in data.
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.userId == userId;
-
-      // Only allow the owner to update their own vault document, and prevent changing the userId.
-      allow update: if isSignedIn() && isOwner(userId) && resource.data.userId == request.resource.data.userId;
-
-      // Only allow the owner to delete their own vault document.
-      allow delete: if isSignedIn() && isOwner(userId);
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+      
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isOwner(userId) && resource.data.userId == userId;
+      allow delete: if isOwner(userId) && resource.data.userId == userId;
     }
 
     /**
-     * @description Enforces user-ownership for the /users/{userId}/vaults/{vaultId}/credentials/{credentialId} document.
+     * @description Secures the /users/{userId}/vaults/{vaultId}/credentials/{credentialId} collection. Allows only the owner to create, read, update, or delete credentials within their own vault path.
      * @path /users/{userId}/vaults/{vaultId}/credentials/{credentialId}
-     * @allow (create) User 'wbBytIZmmtOceyRTRMSORk7USc93' can create a credential under their vault.
-     * @deny (create) User 'anotherUserId' cannot create a credential under userId 'wbBytIZmmtOceyRTRMSORk7USc93'.
-     * @allow (get) User 'wbBytIZmmtOceyRTRMSORk7USc93' can read their own credential.
-     * @deny (get) User 'anotherUserId' cannot read credential with userId 'wbBytIZmmtOceyRTRMSORk7USc93'.
-     * @allow (update) User 'wbBytIZmmtOceyRTRMSORk7USc93' can update their own credential.
-     * @deny (update) User 'anotherUserId' cannot update credential with userId 'wbBytIZmmtOceyRTRMSORk7USc93'.
-     * @allow (delete) User 'wbBytIZmmtOceyRTRMSORk7USc93' can delete their own credential.
-     * @deny (delete) User 'anotherUserId' cannot delete credential with userId 'wbBytIZmmtOceyRTRMSORk7USc93'.
-     * @principle Enforces document ownership for all operations.
+     * @allow (create) - User with UID 'user123' can create a credential under /users/user123/vaults/vault123/credentials/cred123.
+     * @allow (get, list) - User with UID 'user123' can read credential with ID cred123 from the /users/user123/vaults/vault123/credentials/cred123 path.
+     * @deny (create, get, list, update, delete) - User with UID 'otherUser' cannot access credentials under /users/user123/vaults/vault123.
+     * @principle Enforces path-based ownership for credentials.
      */
     match /users/{userId}/vaults/{vaultId}/credentials/{credentialId} {
-      // Only allow authenticated users to access credential documents.
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if isSignedIn() && isOwner(userId);
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
 
-      // Only allow the user to create their own credential document, userId in path must match userId in data.
-      allow create: if isSignedIn() && isOwner(userId) && get(/databases/$(database)/documents/users/$(userId)/vaults/$(vaultId)).data.userId == userId && request.resource.data.vaultId == vaultId;
-
-      // Only allow the owner to update their own credential document, and prevent changing the userId.
-      allow update: if isSignedIn() && isOwner(userId) && get(/databases/$(database)/documents/users/$(userId)/vaults/$(vaultId)).data.userId == userId && request.resource.data.vaultId == vaultId;
-
-      // Only allow the owner to delete their own credential document.
-      allow delete: if isSignedIn() && isOwner(userId);
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.vaultId == vaultId;
+      allow update: if isOwner(userId) && resource.data.vaultId == vaultId;
+      allow delete: if isOwner(userId) && resource.data.vaultId == vaultId;
     }
   }
 }
