@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { cn } from "@/lib/utils";
 import { VaultProvider } from "@/context/vault-context";
 import { ThemeProvider } from "@/components/theme-provider";
+import { FirebaseClientProvider } from "@/firebase";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -35,9 +36,11 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <VaultProvider>
-              {children}
-          </VaultProvider>
+          <FirebaseClientProvider>
+            <VaultProvider>
+                {children}
+            </VaultProvider>
+          </FirebaseClientProvider>
           <Toaster />
         </ThemeProvider>
       </body>
