@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { Eye, EyeOff, PlusCircle, ClipboardCopy, Check, Search, X, MoreHorizontal, Pencil, Trash2, Undo, ShieldAlert, KeyRound, Star, Filter, SortAsc, Download } from "lucide-react";
+import { Eye, EyeOff, PlusCircle, Copy, Check, Search, X, MoreHorizontal, Pencil, Trash2, Undo, ShieldAlert, KeyRound, Star, Filter, SortAsc, Download } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -474,7 +474,7 @@ export default function PasswordList({ passwords, setPasswords, selectedFolderId
                                             </DropdownMenuItem>
                                             <DropdownMenuSeparator />
                                             <DropdownMenuItem onClick={() => handleCopy(entry.username, `${entry.id}-username`)}>
-                                                <ClipboardCopy className="mr-2" /> Copy Username
+                                                <Copy className="mr-2" /> Copy Username
                                             </DropdownMenuItem>
                                             <DropdownMenuItem onClick={() => handleCopy(entry.password, `${entry.id}-password`, true)}>
                                                 <KeyRound className="mr-2" /> Copy Password
@@ -520,7 +520,7 @@ export default function PasswordList({ passwords, setPasswords, selectedFolderId
                           onClick={(e) => { e.stopPropagation(); handleCopy(entry.username, `${entry.id}-username`); }}
                           aria-label="Copy username"
                         >
-                          {copiedField === `${entry.id}-username` ? <Check className="h-4 w-4 text-primary" /> : <ClipboardCopy className="h-4 w-4" />}
+                          {copiedField === `${entry.id}-username` ? <Check className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
                         </Button>
                       </div>
                     </TableCell>
@@ -537,7 +537,7 @@ export default function PasswordList({ passwords, setPasswords, selectedFolderId
                             {revealedPasswords[entry.id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                           </Button>
                            <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleCopy(entry.password, `${entry.id}-password`, true); }} aria-label="Copy password">
-                             {copiedField === `${entry.id}-password` ? <Check className="h-4 w-4 text-primary" /> : <ClipboardCopy className="h-4 w-4" />}
+                             {copiedField === `${entry.id}-password` ? <Check className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
                            </Button>
                         </div>
                       </div>
@@ -561,7 +561,7 @@ export default function PasswordList({ passwords, setPasswords, selectedFolderId
                                         </DropdownMenuItem>
                                         <DropdownMenuSeparator />
                                         <DropdownMenuItem onClick={() => handleCopy(entry.username, `${entry.id}-username`)}>
-                                            <ClipboardCopy className="mr-2" /> Copy Username
+                                            <Copy className="mr-2" /> Copy Username
                                         </DropdownMenuItem>
                                         <DropdownMenuItem onClick={() => handleCopy(entry.password, `${entry.id}-password`, true)}>
                                             <KeyRound className="mr-2" /> Copy Password

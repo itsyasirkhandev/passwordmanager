@@ -17,7 +17,7 @@ import {
   Pencil,
   Trash2,
   Star,
-  ClipboardCopy,
+  Copy,
   KeyRound,
   Globe,
   User,
@@ -106,7 +106,7 @@ export function PasswordDetailSheet({
                     size="icon"
                     onClick={() => onCopy(entry.username, `${entry.id}-detail-username`)}
                   >
-                    <ClipboardCopy className="h-4 w-4" />
+                    <Copy className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
@@ -135,7 +135,7 @@ export function PasswordDetailSheet({
                       size="icon"
                       onClick={() => onCopy(entry.password, `${entry.id}-detail-password`, true)}
                     >
-                      <ClipboardCopy className="h-4 w-4" />
+                      <Copy className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>

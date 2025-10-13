@@ -1,7 +1,8 @@
+
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { RefreshCw, ClipboardCopy, Check } from "lucide-react";
+import { RefreshCw, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -119,7 +120,7 @@ export function PasswordGenerator({ onUsePassword }: PasswordGeneratorProps) {
               onClick={handleCopyToClipboard}
               aria-label="Copy password"
             >
-              {isCopied ? <Check className="text-primary" /> : <ClipboardCopy />}
+              {isCopied ? <Check className="text-primary" /> : <Copy />}
             </Button>
         </div>
         <div className="space-y-4">
