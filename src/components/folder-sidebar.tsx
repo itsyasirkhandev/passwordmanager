@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Folder as FolderIcon, Plus, X, type LucideIcon, Tag } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Folder as FolderIcon, Plus, X, type LucideIcon, Tag, LayoutDashboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Input } from "./ui/input";
@@ -36,6 +38,7 @@ export function FolderSidebar({
 }: FolderSidebarProps) {
   const [isAdding, setIsAdding] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
+  const pathname = usePathname();
 
   const handleAddClick = () => {
     setIsAdding(true);
@@ -65,17 +68,39 @@ export function FolderSidebar({
     onSelectFolder(null);
     onSelectTag(null);
   };
+  
+  const isVaultPage = pathname === '/vault';
 
   return (
     <div className="border-r bg-muted/40 p-4 flex flex-col gap-4">
       <nav className="flex flex-col gap-1">
         <Button
-          variant={selectedFolderId === null && selectedTag === null ? "secondary" : "ghost"}
+            variant={pathname === "/dashboard" ? "secondary" : "ghost"}
+            className="w-full justify-start"
+            asChild
+          >
+            <Link href="/dashboard">
+              <LayoutDashboard className="mr-2" />
+              Dashboard
+            </Link>
+        </Button>
+        <Button
+          variant={isVaultPage && selectedFolderId === null && selectedTag === null ? "secondary" : "ghost"}
           className="w-full justify-start"
           onClick={handleSelectAll}
+          asChild={!isVaultPage}
         >
-          <FolderIcon className="mr-2" />
-          All Passwords
+          {isVaultPage ? (
+            <>
+              <FolderIcon className="mr-2" />
+              All Passwords
+            </>
+          ) : (
+            <Link href="/vault">
+              <FolderIcon className="mr-2" />
+              All Passwords
+            </Link>
+          )}
         </Button>
       </nav>
 
@@ -86,7 +111,7 @@ export function FolderSidebar({
         {folders.map((folder) => (
           <Button
             key={folder.id}
-            variant={selectedFolderId === folder.id ? "secondary" : "ghost"}
+            variant={isVaultPage && selectedFolderId === folder.id ? "secondary" : "ghost"}
             className="w-full justify-start"
             onClick={() => onSelectFolder(folder.id)}
           >
@@ -104,7 +129,7 @@ export function FolderSidebar({
             {tags.map((tag) => (
               <Button
                 key={tag}
-                variant={selectedTag === tag ? "secondary" : "ghost"}
+                variant={isVaultPage && selectedTag === tag ? "secondary" : "ghost"}
                 className="w-full justify-start"
                 onClick={() => onSelectTag(tag)}
               >
@@ -125,7 +150,7 @@ export function FolderSidebar({
               return (
                 <Button
                   key={folder.id}
-                  variant={selectedFolderId === folder.id ? "secondary" : "ghost"}
+                  variant={isVaultPage && selectedFolderId === folder.id ? "secondary" : "ghost"}
                   className="w-full justify-start"
                   onClick={() => onSelectFolder(folder.id)}
                 >

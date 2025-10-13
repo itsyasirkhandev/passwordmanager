@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { cn } from "@/lib/utils";
+import { VaultProvider } from "@/context/vault-context";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -27,7 +28,9 @@ export default function RootLayout({
         />
       </head>
       <body className={cn("font-body antialiased", inter.variable)}>
-        {children}
+        <VaultProvider>
+            {children}
+        </VaultProvider>
         <Toaster />
       </body>
     </html>

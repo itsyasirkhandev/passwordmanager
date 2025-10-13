@@ -1,12 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter, usePathname, useSearchParams } from 'next/navigation';
-import Header from "@/components/header";
-import PasswordList, { type PasswordEntry } from "./password-list";
-import { FolderSidebar, type Folder } from "@/components/folder-sidebar";
-import { Star, Trash2 } from "lucide-react";
-import { useMemo } from "react";
+import React, { createContext, useContext, useState, useMemo } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
+import type { PasswordEntry } from '@/app/vault/password-list';
+import type { Folder } from '@/components/folder-sidebar';
 
 const initialFolders: Folder[] = [
   { id: "1", name: "Personal" },
@@ -67,7 +64,7 @@ const initialPasswords: PasswordEntry[] = [
     createdAt: new Date("2023-04-01T14:00:00Z"),
     updatedAt: new Date("2023-04-01T14:00:00Z"),
   },
-   {
+  {
     id: "5",
     serviceName: "Netflix",
     url: "https://netflix.com",
@@ -95,42 +92,49 @@ const initialPasswords: PasswordEntry[] = [
   },
 ];
 
+type VaultContextType = {
+  passwords: PasswordEntry[];
+  setPasswords: React.Dispatch<React.SetStateAction<PasswordEntry[]>>;
+  folders: Folder[];
+  addFolder: (folderName: string) => void;
+  allTags: string[];
+  selectedFolderId: string | null;
+  selectFolder: (id: string | null) => void;
+  selectedTag: string | null;
+  selectTag: (tag: string | null) => void;
+};
 
-export default function VaultPage() {
-  const [folders, setFolders] = useState<Folder[]>(initialFolders);
+const VaultContext = createContext<VaultContextType | undefined>(undefined);
+
+export function VaultProvider({ children }: { children: React.ReactNode }) {
   const [passwords, setPasswords] = useState<PasswordEntry[]>(initialPasswords);
+  const [folders, setFolders] = useState<Folder[]>(initialFolders);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
 
-  const handleAddFolder = (folderName: string) => {
+  const addFolder = (folderName: string) => {
     const newFolder = { id: String(Date.now()), name: folderName };
     setFolders((prev) => [...prev, newFolder]);
   };
   
-  const handleSelectFolder = (folderId: string | null) => {
+  const selectFolder = (folderId: string | null) => {
     if (pathname !== '/vault') {
-        router.push('/vault');
+      router.push('/vault');
     }
     setSelectedFolderId(folderId);
-    setSelectedTag(null); // Deselect tag when folder changes
+    setSelectedTag(null);
   };
 
-  const handleSelectTag = (tag: string | null) => {
+  const selectTag = (tag: string | null) => {
     if (pathname !== '/vault') {
-        router.push('/vault');
+      router.push('/vault');
     }
     setSelectedTag(tag);
-    setSelectedFolderId(null); // Deselect folder when tag changes
-  }
-
-  const specialFolders: Folder[] = [
-    { id: "favorites", name: "Favorites", icon: Star },
-    { id: "trash", name: "Trash", icon: Trash2 },
-  ];
+    setSelectedFolderId(null);
+  };
 
   const allTags = useMemo(() => {
     const tags = new Set<string>();
@@ -142,30 +146,25 @@ export default function VaultPage() {
     return Array.from(tags).sort();
   }, [passwords]);
 
-  return (
-    <div className="flex flex-col min-h-screen bg-background">
-      <Header />
-      <main className="flex-1 grid md:grid-cols-[280px_1fr] lg:grid-cols-[320px_1fr]">
-        <FolderSidebar
-          folders={folders}
-          specialFolders={specialFolders}
-          tags={allTags}
-          selectedFolderId={selectedFolderId}
-          selectedTag={selectedTag}
-          onSelectFolder={handleSelectFolder}
-          onSelectTag={handleSelectTag}
-          onAddFolder={handleAddFolder}
-        />
-        <div className="p-4 sm:p-6 lg:p-8 flex flex-col">
-            <PasswordList 
-              passwords={passwords}
-              setPasswords={setPasswords}
-              selectedFolderId={selectedFolderId}
-              selectedTag={selectedTag}
-              folders={folders} 
-            />
-        </div>
-      </main>
-    </div>
-  );
+  const value = {
+    passwords,
+    setPasswords,
+    folders,
+    addFolder,
+    allTags,
+    selectedFolderId,
+    selectFolder,
+    selectedTag,
+    selectTag,
+  };
+
+  return <VaultContext.Provider value={value}>{children}</VaultContext.Provider>;
+}
+
+export function useVault() {
+  const context = useContext(VaultContext);
+  if (context === undefined) {
+    throw new Error('useVault must be used within a VaultProvider');
+  }
+  return context;
 }
