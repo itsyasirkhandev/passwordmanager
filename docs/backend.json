@@ -1,0 +1,161 @@
+{
+  "entities": {
+    "Credential": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Credential",
+      "type": "object",
+      "description": "Represents a stored credential, including the service, username, and masked password.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Credential entity."
+        },
+        "vaultId": {
+          "type": "string",
+          "description": "Reference to Vault. (Relationship: Vault 1:N Credential)"
+        },
+        "serviceName": {
+          "type": "string",
+          "description": "The name of the website or service the credential belongs to."
+        },
+        "username": {
+          "type": "string",
+          "description": "The username for the service."
+        },
+        "password": {
+          "type": "string",
+          "description": "The masked password for the service.  This should be encrypted or stored securely."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Optional notes related to the credential.",
+          "format": "string"
+        }
+      },
+      "required": [
+        "id",
+        "vaultId",
+        "serviceName",
+        "username",
+        "password"
+      ]
+    },
+    "Vault": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Vault",
+      "type": "object",
+      "description": "Represents a user's password vault.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Vault entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N Vault)"
+        },
+        "vaultName": {
+          "type": "string",
+          "description": "The vault name for the user."
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "vaultName"
+      ]
+    },
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user of the CipherVault application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the User entity."
+        },
+        "email": {
+          "type": "string",
+          "description": "The email address of the user.",
+          "format": "email"
+        }
+      },
+      "required": [
+        "id",
+        "email"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user data.  This collection is path-based owned, preventing unauthorized access.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/vaults/{vaultId}",
+        "definition": {
+          "entityName": "Vault",
+          "schema": {
+            "$ref": "#/backend/entities/Vault"
+          },
+          "description": "Stores vaults data for a user. Path-based ownership ensures that only the user can access their vaults.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            },
+            {
+              "name": "vaultId",
+              "description": "The unique identifier for the vault."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/vaults/{vaultId}/credentials/{credentialId}",
+        "definition": {
+          "entityName": "Credential",
+          "schema": {
+            "$ref": "#/backend/entities/Credential"
+          },
+          "description": "Stores credential data for a specific vault of a user. Path-based ownership guarantees that only the user can access their credentials.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            },
+            {
+              "name": "vaultId",
+              "description": "The unique identifier for the vault."
+            },
+            {
+              "name": "credentialId",
+              "description": "The unique identifier for the credential."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to ensure secure and scalable management of user vaults and credentials, following the principles of Authorization Independence, Structural Segregation, and Access Modeling. Authorization Independence is achieved through path-based ownership, where vaults and credentials are stored under the user's document, thus avoiding the need for complex `get()` calls in security rules.  Vaults and credentials are kept separate and owned by the user. This eliminates hierarchical authorization dependencies and ensures atomic operations.\n\nStructural Segregation is enforced by placing vaults and credentials in dedicated collections under each user's document. This segregation simplifies security rules, as all documents within a collection share the same access requirements. QAPs are supported through secure `list` operations based on path-based ownership, allowing users to only access their own vaults and credentials.\n\nThe structure also incorporates explicit state modeling and predictable schemas, using descriptive names and consistent authorization fields (e.g., `userId`)."
+  }
+}

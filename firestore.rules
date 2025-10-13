@@ -1,0 +1,166 @@
+/**
+ * @fileoverview Firestore Security Rules for CipherVault.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a strict user-ownership model. All data is nested under
+ * /users/{userId}, ensuring that only the authenticated user can access their own
+ * vaults and credentials. No listing of users is allowed.
+ *
+ * Data Structure:
+ * - /users/{userId}: Stores user profiles.
+ * - /users/{userId}/vaults/{vaultId}: Stores vaults for each user.
+ * - /users/{userId}/vaults/{vaultId}/credentials/{credentialId}: Stores credentials for each vault.
+ *
+ * Key Security Decisions:
+ * - User listing is disallowed to prevent information disclosure.
+ * - All read and write operations are validated against the authenticated user's ID.
+ *
+ * Denormalization for Authorization:
+ *  - The data model already enforces that the documents are stored in a path
+ *    structure that enables easy authorization with path variables. This avoids
+ *    the need for extra `get()` calls or complex role lookups.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Ensures that only the authenticated user can access their own user document.
+     * @path /users/{userId}
+     * @allow (create) - Authenticated user creates their own user document.
+     * @allow (get) - Authenticated user gets their own user document.
+     * @allow (update) - Authenticated user updates their own user document.
+     * @allow (delete) - Authenticated user deletes their own user document.
+     * @deny (create) - Unauthenticated user attempts to create a user document.
+     * @deny (get) - Authenticated user attempts to get another user's document.
+     * @deny (update) - Authenticated user attempts to update another user's document.
+     * @deny (delete) - Authenticated user attempts to delete another user's document.
+     * @principle Enforces document ownership for all operations.
+     */
+    match /users/{userId} {
+      // Helper function to check if the user is signed in.
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      // Helper function to check if the authenticated user ID matches the requested user ID.
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+      //Helper function to check if the authenticated user ID matches the requested user ID and the resource exists.
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+
+      // Allow the user to create their own document if the userId matches their auth.uid
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == userId;
+
+      // Allow the user to read their own document
+      allow get: if isSignedIn() && isOwner(userId);
+
+      // Allow the user to update their own document.  Enforce immutability of the userId field.
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+
+      // Allow the user to delete their own document
+      allow delete: if isExistingOwner(userId);
+
+      // Do not allow listing of users.
+      allow list: if false;
+    }
+
+    /**
+     * @description Ensures that only the authenticated user can access their own vaults.
+     * @path /users/{userId}/vaults/{vaultId}
+     * @allow (create) - Authenticated user creates a vault in their own user document.
+     * @allow (get) - Authenticated user gets a vault in their own user document.
+     * @allow (update) - Authenticated user updates a vault in their own user document.
+     * @allow (delete) - Authenticated user deletes a vault in their own user document.
+     * @allow (list) - Authenticated user lists the vaults in their own user document.
+     * @deny (create) - Unauthenticated user attempts to create a vault.
+     * @deny (create) - Authenticated user attempts to create a vault in another user's document.
+     * @deny (get) - Authenticated user attempts to get a vault from another user's document.
+     * @deny (update) - Authenticated user attempts to update a vault in another user's document.
+     * @deny (delete) - Authenticated user attempts to delete a vault from another user's document.
+     * @principle Enforces document ownership for all operations within the vaults subcollection.
+     */
+    match /users/{userId}/vaults/{vaultId} {
+       // Helper function to check if the user is signed in.
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      // Helper function to check if the authenticated user ID matches the requested user ID.
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+        //Helper function to check if the authenticated user ID matches the requested user ID and the resource exists.
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+
+      // Allow the user to create a vault if the userId matches their auth.uid
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.userId == userId;
+
+      // Allow the user to read a vault if the userId matches their auth.uid
+      allow get: if isSignedIn() && isOwner(userId);
+
+      // Allow the user to update a vault if the userId matches their auth.uid. Enforce immutability of the userId field.
+      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
+
+      // Allow the user to delete a vault if the userId matches their auth.uid
+      allow delete: if isExistingOwner(userId);
+
+      // Allow listing of vaults for the owner
+      allow list: if isSignedIn() && isOwner(userId);
+    }
+
+    /**
+     * @description Ensures that only the authenticated user can access their own credentials.
+     * @path /users/{userId}/vaults/{vaultId}/credentials/{credentialId}
+     * @allow (create) - Authenticated user creates a credential in their own vault.
+     * @allow (get) - Authenticated user gets a credential from their own vault.
+     * @allow (update) - Authenticated user updates a credential in their own vault.
+     * @allow (delete) - Authenticated user deletes a credential from their own vault.
+     * @allow (list) - Authenticated user lists the credentials in their own vault.
+     * @deny (create) - Unauthenticated user attempts to create a credential.
+     * @deny (create) - Authenticated user attempts to create a credential in another user's vault.
+     * @deny (get) - Authenticated user attempts to get a credential from another user's vault.
+     * @deny (update) - Authenticated user attempts to update a credential in another user's vault.
+     * @deny (delete) - Authenticated user attempts to delete a credential from another user's vault.
+     * @principle Enforces document ownership for all operations within the credentials subcollection.
+     */
+    match /users/{userId}/vaults/{vaultId}/credentials/{credentialId} {
+        // Helper function to check if the user is signed in.
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      // Helper function to check if the authenticated user ID matches the requested user ID.
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+      //Helper function to check if the authenticated user ID matches the requested user ID and the resource exists.
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+
+      // Allow the user to create a credential if the userId matches their auth.uid
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.vaultId == vaultId;
+
+      // Allow the user to read a credential if the userId matches their auth.uid
+      allow get: if isSignedIn() && isOwner(userId);
+
+      // Allow the user to update a credential if the userId matches their auth.uid. Enforce immutability of the vaultId field.
+      allow update: if isExistingOwner(userId) && request.resource.data.vaultId == resource.data.vaultId;
+
+      // Allow the user to delete a credential if the userId matches their auth.uid
+      allow delete: if isExistingOwner(userId);
+
+      // Allow listing of credentials for the owner
+      allow list: if isSignedIn() && isOwner(userId);
+    }
+  }
+}
