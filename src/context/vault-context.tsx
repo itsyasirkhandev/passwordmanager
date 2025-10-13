@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { createContext, useContext, useState, useMemo, useEffect } from 'react';
+import React, { createContext, useContext, useState, useMemo, useEffect, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useUser, useFirestore, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import {
@@ -11,9 +11,8 @@ import {
   updateDoc,
   deleteDoc,
   serverTimestamp,
-  query,
-  where,
   getDocs,
+  writeBatch,
   Timestamp,
 } from 'firebase/firestore';
 import { type PasswordEntry, type PasswordFormValues } from '@/app/vault/password-form-dialog';
@@ -56,16 +55,50 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     if (!user) return null;
     return collection(firestore, 'users', user.uid, 'vaults');
   }, [firestore, user]);
+  
   const { data: folders, isLoading: isLoadingFolders } = useCollection<Folder>(vaultsCol);
 
+  // Function to create a default vault
+  const createDefaultVault = useCallback(async () => {
+    if (!user || !firestore) return;
+    const defaultVaultRef = doc(collection(firestore, 'users', user.uid, 'vaults'));
+    try {
+        await setDoc(defaultVaultRef, { name: "Personal", userId: user.uid });
+        toast({
+            title: "Welcome!",
+            description: "We've created a 'Personal' vault for you to get started."
+        });
+    } catch (serverError) {
+        const permissionError = new FirestorePermissionError({
+            path: defaultVaultRef.path,
+            operation: 'create',
+            requestResourceData: { name: "Personal", userId: user.uid },
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    }
+  }, [user, firestore, toast]);
+
+  // Effect to create a default vault if none exist for the user
   useEffect(() => {
-    if (!user || !firestore || isLoadingFolders) {
-      setIsLoadingPasswords(!user || isLoadingFolders);
+    if (user && !isLoadingFolders && folders && folders.length === 0) {
+      createDefaultVault();
+    }
+  }, [user, isLoadingFolders, folders, createDefaultVault]);
+
+
+  useEffect(() => {
+    if (!user || !firestore) {
+      setIsLoadingPasswords(!user);
+      setPasswords([]);
       return;
     }
+    
+    if (isLoadingFolders) {
+        setIsLoadingPasswords(true);
+        return;
+    }
 
-    // If there are no vaults, there are no passwords to fetch.
-    if (!folders || folders.length === 0) {
+    if (!folders) {
         setPasswords([]);
         setIsLoadingPasswords(false);
         return;
@@ -73,7 +106,6 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
 
     setIsLoadingPasswords(true);
     
-    // Create a query for each vault
     const credentialQueries = folders.map(folder => 
         getDocs(collection(firestore, 'users', user.uid, 'vaults', folder.id, 'credentials'))
     );
@@ -87,9 +119,6 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       })
       .catch(error => {
         console.error("Error fetching credentials from vaults:", error);
-        // We can't easily generate a permission error for a complex query like this,
-        // so a console error is acceptable here for now. A more advanced implementation
-        // could try to identify which vault failed.
         toast({ variant: 'destructive', title: 'Error', description: 'Could not load credentials.' });
       })
       .finally(() => {
@@ -102,7 +131,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
   const addFolder = (folderName: string) => {
      if (!user) return;
      const newFolderRef = doc(collection(firestore, 'users', user.uid, 'vaults'));
-     const newFolder: Omit<Folder, 'id'> = { name: folderName };
+     const newFolder: Partial<Folder> & {userId: string} = { name: folderName, userId: user.uid };
      setDoc(newFolderRef, newFolder).catch(serverError => {
         const permissionError = new FirestorePermissionError({
             path: newFolderRef.path,

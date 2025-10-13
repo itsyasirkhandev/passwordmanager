@@ -49,6 +49,7 @@ export type PasswordEntry = z.infer<typeof passwordSchema> & {
   createdAt: Timestamp;
   updatedAt: Timestamp;
   deletedAt?: Timestamp | null;
+  userId?: string;
 };
 export type PasswordFormValues = z.infer<typeof passwordSchema>;
 
@@ -77,28 +78,34 @@ export function PasswordFormDialog({
       username: "",
       password: "",
       notes: "",
-      folderId: defaultFolderId ?? undefined,
+      folderId: undefined,
       tags: [],
       isFavorite: false,
     },
   });
 
   useEffect(() => {
-    if (initialData) {
-      form.reset(initialData);
-    } else {
-      form.reset({
-        serviceName: "",
-        url: "",
-        username: "",
-        password: "",
-        notes: "",
-        folderId: defaultFolderId && defaultFolderId !== 'trash' && defaultFolderId !== 'favorites' ? defaultFolderId : (folders[0]?.id ?? 'none'),
-        tags: [],
-        isFavorite: false,
-      });
+    if (isOpen) {
+      if (initialData) {
+        form.reset(initialData);
+      } else {
+        // Smart default for folderId
+        const validDefaultFolder = defaultFolderId && defaultFolderId !== 'trash' && defaultFolderId !== 'favorites';
+        const firstAvailableFolder = folders && folders.length > 0 ? folders[0].id : undefined;
+        
+        form.reset({
+          serviceName: "",
+          url: "",
+          username: "",
+          password: "",
+          notes: "",
+          folderId: validDefaultFolder ? defaultFolderId : (firstAvailableFolder ?? 'none'),
+          tags: [],
+          isFavorite: false,
+        });
+      }
     }
-  }, [initialData, form, defaultFolderId, folders]);
+  }, [isOpen, initialData, form, defaultFolderId, folders]);
 
   const handleFormSubmit = (values: PasswordFormValues) => {
     const dataToSubmit = {
@@ -202,7 +209,7 @@ export function PasswordFormDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Folder</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value || 'none'}>
                         <FormControl>
                             <SelectTrigger>
                                 <SelectValue placeholder="Select a folder" />
@@ -210,7 +217,7 @@ export function PasswordFormDialog({
                         </FormControl>
                         <SelectContent>
                             <SelectItem value="none">No Folder</SelectItem>
-                            {folders.map(folder => (
+                            {folders && folders.map(folder => (
                                 <SelectItem key={folder.id} value={folder.id}>
                                     {folder.name}
                                 </SelectItem>
