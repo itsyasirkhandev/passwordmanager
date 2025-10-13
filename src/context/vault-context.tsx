@@ -3,7 +3,7 @@
 
 import React, { createContext, useContext, useState, useMemo, useEffect, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { useUser, useFirestore, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import {
   collection,
   doc,
@@ -18,6 +18,8 @@ import {
 import { type PasswordEntry, type PasswordFormValues } from '@/app/vault/password-form-dialog';
 import type { Folder } from '@/components/folder-sidebar';
 import { useToast } from '@/hooks/use-toast';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 type VaultContextType = {
   passwords: PasswordEntry[];
@@ -166,7 +168,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     const collectionPath = `users/${user.uid}/vaults/${data.folderId}/credentials`;
     const docRef = id ? doc(firestore, collectionPath, id) : doc(collection(firestore, collectionPath));
     
-    const dataToSave: Omit<PasswordEntry, 'id' | 'createdAt' | 'updatedAt'> & { updatedAt: any, createdAt?: any } = {
+    const dataToSave: Omit<PasswordEntry, 'id'| 'createdAt' | 'updatedAt' | 'deletedAt'> & { updatedAt: any, createdAt?: any } = {
       ...data,
       updatedAt: serverTimestamp(),
       ...(id ? {} : { createdAt: serverTimestamp() }),
