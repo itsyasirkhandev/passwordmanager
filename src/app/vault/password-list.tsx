@@ -12,28 +12,33 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AddPasswordDialog, type PasswordEntry } from "./add-password-dialog";
+import { PasswordFormDialog, type PasswordEntry, type PasswordFormValues } from "./password-form-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
 
 const initialPasswords: PasswordEntry[] = [
   {
     id: "1",
-    website: "Google",
+    serviceName: "Google",
+    url: "https://google.com",
     username: "user@gmail.com",
     password: "supersecretpassword1",
+    notes: "Security question: Favorite color is blue.",
   },
   {
     id: "2",
-    website: "Facebook",
+    serviceName: "Facebook",
+    url: "https://facebook.com",
     username: "user.name",
     password: "anotherSecurePassword!",
+    notes: "",
   },
   {
     id: "3",
-    website: "GitHub",
+    serviceName: "GitHub",
+    url: "https://github.com",
     username: "git-user",
     password: "my-repo-password-123",
+    notes: "Used for work projects.",
   },
 ];
 
@@ -42,7 +47,8 @@ export default function PasswordList() {
   const [revealedPasswords, setRevealedPasswords] = useState<
     Record<string, boolean>
   >({});
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingPassword, setEditingPassword] = useState<PasswordEntry | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const { toast } = useToast();
 
@@ -72,19 +78,38 @@ export default function PasswordList() {
     setRevealedPasswords((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const handleAddPassword = (newPassword: Omit<PasswordEntry, "id">) => {
-    setPasswords((prev) => [
-      ...prev,
-      { ...newPassword, id: String(Date.now()) },
-    ]);
+  const handleOpenAddForm = () => {
+    setEditingPassword(null);
+    setIsFormOpen(true);
+  }
+
+  const handleOpenEditForm = (password: PasswordEntry) => {
+    setEditingPassword(password);
+    setIsFormOpen(true);
+  }
+  
+  const handleSubmitPassword = (data: PasswordFormValues) => {
+    if (editingPassword) {
+      // Update existing password
+      setPasswords(passwords.map(p => p.id === editingPassword.id ? { ...p, ...data } : p));
+      toast({ title: "Success", description: "Password updated." });
+    } else {
+      // Add new password
+      const newPassword: PasswordEntry = { ...data, id: String(Date.now()) };
+      setPasswords([...passwords, newPassword]);
+      toast({ title: "Success", description: "Password added to your vault." });
+    }
+    setIsFormOpen(false);
+    setEditingPassword(null);
   };
+
 
   return (
     <>
       <Card className="shadow-lg">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Your Vault</CardTitle>
-          <Button onClick={() => setIsAddDialogOpen(true)}>
+          <Button onClick={handleOpenAddForm}>
             <PlusCircle className="mr-2 h-4 w-4" />
             Add Password
           </Button>
@@ -94,16 +119,16 @@ export default function PasswordList() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[25%]">Website/Service</TableHead>
+                  <TableHead className="w-[25%]">Service</TableHead>
                   <TableHead className="w-[37.5%]">Username</TableHead>
                   <TableHead className="w-[37.5%]">Password</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {passwords.map((entry) => (
-                  <TableRow key={entry.id}>
+                  <TableRow key={entry.id} onClick={() => handleOpenEditForm(entry)} className="cursor-pointer">
                     <TableCell className="font-medium">
-                      {entry.website}
+                      {entry.serviceName}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center justify-between gap-2">
@@ -113,7 +138,7 @@ export default function PasswordList() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleCopy(entry.username, `${entry.id}-username`)}
+                          onClick={(e) => { e.stopPropagation(); handleCopy(entry.username, `${entry.id}-username`); }}
                           aria-label="Copy username"
                         >
                           {copiedField === `${entry.id}-username` ? (
@@ -131,7 +156,7 @@ export default function PasswordList() {
                             ? entry.password
                             : "••••••••••••"}
                         </span>
-                        <div className="flex items-center">
+                        <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
                           <Button
                             variant="ghost"
                             size="icon"
@@ -176,10 +201,11 @@ export default function PasswordList() {
           )}
         </CardContent>
       </Card>
-      <AddPasswordDialog
-        isOpen={isAddDialogOpen}
-        onOpenChange={setIsAddDialogOpen}
-        onAddPassword={handleAddPassword}
+      <PasswordFormDialog
+        isOpen={isFormOpen}
+        onOpenChange={setIsFormOpen}
+        onSubmit={handleSubmitPassword}
+        initialData={editingPassword}
       />
     </>
   );
