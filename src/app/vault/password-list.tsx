@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { Eye, EyeOff, PlusCircle, ClipboardCopy, Check, Search, X, MoreHorizontal, Pencil, Trash2, ShieldQuestion, Undo, ShieldAlert, KeyRound } from "lucide-react";
+import { Eye, EyeOff, PlusCircle, ClipboardCopy, Check, Search, X, MoreHorizontal, Pencil, Trash2, Undo, ShieldAlert, KeyRound } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -34,53 +34,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
 
-const initialPasswords: PasswordEntry[] = [
-  {
-    id: "1",
-    serviceName: "Google",
-    url: "https://google.com",
-    username: "user@gmail.com",
-    password: "supersecretpassword1",
-    notes: "Security question: Favorite color is blue.",
-    folderId: "1",
-  },
-  {
-    id: "2",
-    serviceName: "Facebook",
-    url: "https://facebook.com",
-    username: "user.name",
-    password: "anotherSecurePassword!",
-    notes: "",
-    folderId: "1",
-  },
-  {
-    id: "3",
-    serviceName: "GitHub",
-    url: "https://github.com",
-    username: "git-user",
-    password: "my-repo-password-123",
-    notes: "Used for work projects.",
-    folderId: "2",
-  },
-  {
-    id: "4",
-    serviceName: "Bank of America",
-    url: "https://bankofamerica.com",
-    username: "bank.user",
-    password: "very-secure-banking-password",
-    notes: "",
-    folderId: "3",
-  },
-];
+export type { PasswordEntry };
 
 type PasswordListProps = {
+  passwords: PasswordEntry[];
+  setPasswords: React.Dispatch<React.SetStateAction<PasswordEntry[]>>;
   selectedFolderId: string | null;
+  selectedTag: string | null;
   folders: Folder[];
 };
 
-export default function PasswordList({ selectedFolderId, folders }: PasswordListProps) {
-  const [passwords, setPasswords] = useState<PasswordEntry[]>(initialPasswords);
+export default function PasswordList({ passwords, setPasswords, selectedFolderId, selectedTag, folders }: PasswordListProps) {
   const [revealedPasswords, setRevealedPasswords] = useState<Record<string, boolean>>({});
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingPassword, setEditingPassword] = useState<PasswordEntry | null>(null);
@@ -99,6 +65,8 @@ export default function PasswordList({ selectedFolderId, folders }: PasswordList
 
     if (selectedFolderId && selectedFolderId !== 'trash') {
       filtered = filtered.filter(p => p.folderId === selectedFolderId);
+    } else if (selectedTag) {
+      filtered = filtered.filter(p => p.tags?.includes(selectedTag));
     }
     
     if (!searchQuery) {
@@ -111,13 +79,14 @@ export default function PasswordList({ selectedFolderId, folders }: PasswordList
         p.serviceName.toLowerCase().includes(lowercasedQuery) ||
         p.username.toLowerCase().includes(lowercasedQuery) ||
         p.url?.toLowerCase().includes(lowercasedQuery) ||
-        p.notes?.toLowerCase().includes(lowercasedQuery)
+        p.notes?.toLowerCase().includes(lowercasedQuery) ||
+        p.tags?.some(tag => tag.toLowerCase().includes(lowercasedQuery))
     );
-  }, [passwords, searchQuery, selectedFolderId, isTrashView]);
+  }, [passwords, searchQuery, selectedFolderId, selectedTag, isTrashView]);
 
   useEffect(() => {
     setSelectedIds([]);
-  }, [selectedFolderId, searchQuery]);
+  }, [selectedFolderId, selectedTag, searchQuery]);
 
   const handleCopy = (text: string, fieldId: string) => {
     navigator.clipboard.writeText(text).then(
@@ -149,7 +118,7 @@ export default function PasswordList({ selectedFolderId, folders }: PasswordList
   
   const handleSubmitPassword = (data: PasswordFormValues) => {
     if (editingPassword) {
-      setPasswords(passwords.map(p => p.id === editingPassword.id ? { ...p, ...data } : p));
+      setPasswords(passwords.map(p => p.id === editingPassword.id ? { ...editingPassword, ...data } : p));
       toast({ title: "Success", description: "Password updated." });
     } else {
       const newPassword: PasswordEntry = { ...data, id: String(Date.now()) };
@@ -226,7 +195,14 @@ export default function PasswordList({ selectedFolderId, folders }: PasswordList
   };
 
   const currentFolder = folders.find(f => f.id === selectedFolderId);
-  const folderTitle = isTrashView ? "Trash" : (currentFolder ? currentFolder.name : "All Passwords");
+  
+  const getTitle = () => {
+    if (isTrashView) return "Trash";
+    if (selectedTag) return `Tagged: "${selectedTag}"`;
+    if (currentFolder) return currentFolder.name;
+    return "All Passwords";
+  };
+  const folderTitle = getTitle();
 
   return (
     <>
@@ -296,7 +272,16 @@ export default function PasswordList({ selectedFolderId, folders }: PasswordList
                         />
                     </TableCell>
                     <TableCell className="font-medium">
-                      {entry.serviceName}
+                      <div className="flex flex-col gap-1">
+                        <span>{entry.serviceName}</span>
+                        {entry.tags && entry.tags.length > 0 && !isTrashView && (
+                          <div className="flex flex-wrap gap-1">
+                            {entry.tags.map(tag => (
+                              <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center justify-between gap-2">
@@ -381,8 +366,8 @@ export default function PasswordList({ selectedFolderId, folders }: PasswordList
                 </>
               ) : (
                 <>
-                  <p>{isTrashView ? "Trash is empty." : "Your vault is empty for this folder."}</p>
-                  {!isTrashView && <p>Click "Add Password" to get started.</p>}
+                  <p>{isTrashView ? "Trash is empty." : "Your vault is empty for this selection."}</p>
+                  {!isTrashView && !selectedTag && <p>Click "Add Password" to get started.</p>}
                 </>
               )}
             </div>

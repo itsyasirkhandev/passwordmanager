@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Folder as FolderIcon, Plus, X, type LucideIcon } from "lucide-react";
+import { Folder as FolderIcon, Plus, X, type LucideIcon, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Input } from "./ui/input";
@@ -16,16 +16,22 @@ export type Folder = {
 type FolderSidebarProps = {
   folders: Folder[];
   specialFolders?: Folder[];
+  tags: string[];
   selectedFolderId: string | null;
+  selectedTag: string | null;
   onSelectFolder: (id: string | null) => void;
+  onSelectTag: (tag: string | null) => void;
   onAddFolder: (name: string) => void;
 };
 
 export function FolderSidebar({
   folders,
   specialFolders = [],
+  tags,
   selectedFolderId,
+  selectedTag,
   onSelectFolder,
+  onSelectTag,
   onAddFolder,
 }: FolderSidebarProps) {
   const [isAdding, setIsAdding] = useState(false);
@@ -55,18 +61,28 @@ export function FolderSidebar({
     }
   };
 
+  const handleSelectAll = () => {
+    onSelectFolder(null);
+    onSelectTag(null);
+  };
+
   return (
     <div className="border-r bg-muted/40 p-4 flex flex-col gap-4">
-      <h2 className="text-lg font-semibold tracking-tight">Folders</h2>
       <nav className="flex flex-col gap-1">
         <Button
-          variant={selectedFolderId === null ? "secondary" : "ghost"}
+          variant={selectedFolderId === null && selectedTag === null ? "secondary" : "ghost"}
           className="w-full justify-start"
-          onClick={() => onSelectFolder(null)}
+          onClick={handleSelectAll}
         >
           <FolderIcon className="mr-2" />
           All Passwords
         </Button>
+      </nav>
+
+      <Separator />
+      
+      <h2 className="text-lg font-semibold tracking-tight -mb-2">Folders</h2>
+      <nav className="flex flex-col gap-1">
         {folders.map((folder) => (
           <Button
             key={folder.id}
@@ -79,6 +95,26 @@ export function FolderSidebar({
           </Button>
         ))}
       </nav>
+
+      {tags.length > 0 && (
+        <>
+          <Separator />
+          <h2 className="text-lg font-semibold tracking-tight -mb-2">Tags</h2>
+          <nav className="flex flex-col gap-1">
+            {tags.map((tag) => (
+              <Button
+                key={tag}
+                variant={selectedTag === tag ? "secondary" : "ghost"}
+                className="w-full justify-start"
+                onClick={() => onSelectTag(tag)}
+              >
+                <Tag className="mr-2" />
+                {tag}
+              </Button>
+            ))}
+          </nav>
+        </>
+      )}
 
       {specialFolders.length > 0 && (
         <>

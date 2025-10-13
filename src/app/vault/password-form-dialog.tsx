@@ -28,6 +28,7 @@ import { KeyRound } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Folder } from "@/components/folder-sidebar";
+import { TagInput } from "@/components/tag-input";
 
 
 const passwordSchema = z.object({
@@ -37,6 +38,7 @@ const passwordSchema = z.object({
   password: z.string().min(1, "Password is required."),
   notes: z.string().optional(),
   folderId: z.string().optional(),
+  tags: z.array(z.string()).optional(),
 });
 
 export type PasswordEntry = z.infer<typeof passwordSchema> & { 
@@ -71,6 +73,7 @@ export function PasswordFormDialog({
       password: "",
       notes: "",
       folderId: defaultFolderId ?? undefined,
+      tags: [],
     },
   });
 
@@ -85,6 +88,7 @@ export function PasswordFormDialog({
         password: "",
         notes: "",
         folderId: defaultFolderId && defaultFolderId !== 'trash' ? defaultFolderId : (folders[0]?.id ?? undefined),
+        tags: [],
       });
     }
   }, [initialData, form, defaultFolderId, folders]);
@@ -199,6 +203,25 @@ export function PasswordFormDialog({
                             ))}
                         </SelectContent>
                     </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="tags"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Tags</FormLabel>
+                  <FormControl>
+                    <TagInput
+                      placeholder="Enter a tag..."
+                      tags={field.value || []}
+                      setTags={(newTags) => {
+                        form.setValue("tags", newTags);
+                      }}
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
