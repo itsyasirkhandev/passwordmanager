@@ -40,7 +40,11 @@ const NavLink = ({ href, onClick, isActive, isCollapsed, label, icon: Icon, asCh
     const button = (
          <Button
             variant={isActive ? "secondary" : "ghost"}
-            className={cn("w-full text-base", isCollapsed ? "justify-center px-0" : "justify-start")}
+            className={cn(
+              "w-full text-base", 
+              isCollapsed ? "justify-center px-0" : "justify-start",
+              isActive && "bg-primary/10 text-primary hover:bg-primary/20"
+            )}
             onClick={onClick}
             asChild={asChild}
         >
