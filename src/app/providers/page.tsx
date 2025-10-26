@@ -1,16 +1,15 @@
 
-"use client";
+'use client';
 
-import { useState } from "react";
-import Header from "@/components/header";
-import PasswordList from "./password-list";
-import { FolderSidebar, MobileSidebar } from "@/components/folder-sidebar";
-import { useVault } from "@/context/vault-context";
-import { cn } from "@/lib/utils";
-import withAuth from "@/components/withAuth";
+import { useState } from 'react';
+import Header from '@/components/header';
+import { FolderSidebar, MobileSidebar } from '@/components/folder-sidebar';
+import { useVault } from '@/context/vault-context';
+import { cn } from '@/lib/utils';
+import withAuth from '@/components/withAuth';
+import ProviderList from './provider-list';
 
-
-function VaultPage() {
+function ProvidersPage() {
   const { folders, addFolder, selectFolder, selectTag, allTags, selectedFolderId, selectedTag } = useVault();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true);
@@ -54,18 +53,12 @@ function VaultPage() {
             isCollapsed={!isDesktopSidebarOpen}
           />
         </aside>
-        <div className="p-0 sm:p-6 lg:p-8 flex flex-col overflow-hidden">
-            <PasswordList 
-              selectedFolderId={selectedFolderId}
-              selectedTag={selectedTag}
-              folders={folders} 
-            />
-        </div>
+        <main className="overflow-y-auto p-4 sm:p-6 lg:p-8">
+            <ProviderList />
+        </main>
       </div>
     </div>
   );
 }
 
-
-export default withAuth(VaultPage);
-
+export default withAuth(ProvidersPage);

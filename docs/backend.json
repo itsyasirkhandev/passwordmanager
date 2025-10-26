@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "Credential": {
@@ -85,6 +86,37 @@
         "id",
         "email"
       ]
+    },
+    "Provider": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Provider",
+      "type": "object",
+      "description": "Represents a service provider for which multiple credentials can be stored.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Provider entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "The ID of the user who owns this provider."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the provider (e.g., Google, Amazon)."
+        },
+        "url": {
+          "type": "string",
+          "description": "The website URL of the provider.",
+          "format": "uri"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "name",
+        "url"
+      ]
     }
   },
   "auth": {
@@ -154,8 +186,28 @@
             }
           ]
         }
+      },
+      {
+        "path": "/users/{userId}/providers/{providerId}",
+        "definition": {
+          "entityName": "Provider",
+          "schema": {
+            "$ref": "#/backend/entities/Provider"
+          },
+          "description": "Stores service provider information for a user. Path-based ownership ensures that only the user can access their providers.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            },
+            {
+              "name": "providerId",
+              "description": "The unique identifier for the provider."
+            }
+          ]
+        }
       }
     ],
-    "reasoning": "The Firestore structure is designed to ensure secure and scalable management of user vaults and credentials, following the principles of Authorization Independence, Structural Segregation, and Access Modeling. Authorization Independence is achieved through path-based ownership, where vaults and credentials are stored under the user's document, thus avoiding the need for complex `get()` calls in security rules.  Vaults and credentials are kept separate and owned by the user. This eliminates hierarchical authorization dependencies and ensures atomic operations.\n\nStructural Segregation is enforced by placing vaults and credentials in dedicated collections under each user's document. This segregation simplifies security rules, as all documents within a collection share the same access requirements. QAPs are supported through secure `list` operations based on path-based ownership, allowing users to only access their own vaults and credentials.\n\nThe structure also incorporates explicit state modeling and predictable schemas, using descriptive names and consistent authorization fields (e.g., `userId`)."
+    "reasoning": "The Firestore structure is designed to ensure secure and scalable management of user vaults and credentials, following the principles of Authorization Independence, Structural Segregation, and Access Modeling. Authorization Independence is achieved through path-based ownership, where vaults and credentials are stored under the user's document, thus avoiding the need for complex `get()` calls in security rules.  Vaults and credentials are kept separate and owned by the user. This eliminates hierarchical authorization dependencies and ensures atomic operations.\n\nStructural Segregation is enforced by placing vaults and credentials in dedicated collections under each user's document. This segregation simplifies security rules, as all documents within a collection share the same access requirements. QAPs are supported through secure `list` operations based on path-based ownership, allowing users to only access their own vaults and credentials.\n\nThe structure also incorporates explicit state modeling and predictable schemas, using descriptive names and consistent authorization fields (e.g., `userId`). The new Provider collection follows the same path-based ownership principles for security and scalability."
   }
 }

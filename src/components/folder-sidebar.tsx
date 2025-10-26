@@ -4,7 +4,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Folder as FolderIcon, Plus, X, type LucideIcon, Tag, LayoutDashboard, Star, Trash2 } from "lucide-react";
+import { Folder as FolderIcon, Plus, X, type LucideIcon, Tag, LayoutDashboard, Star, Trash2, Network } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Input } from "./ui/input";
@@ -168,6 +168,15 @@ export function FolderSidebar({
                 label="All Passwords"
                 icon={FolderIcon}
                 asChild={!isVaultPage}
+            />
+            <NavLink 
+                href="/providers"
+                onClick={onClose}
+                isActive={pathname === "/providers"}
+                isCollapsed={isCollapsed}
+                label="Providers"
+                icon={Network}
+                asChild
             />
         </nav>
 
