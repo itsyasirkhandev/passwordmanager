@@ -19,7 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 function DashboardPage() {
   const { passwords, folders, addFolder, selectFolder, selectTag, allTags, selectedFolderId, selectedTag, isLoadingPasswords } = useVault();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
-  const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true);
+  const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(false);
   
   const activePasswords = passwords.filter(p => !p.deletedAt);
   const totalPasswords = activePasswords.length;
@@ -268,3 +268,5 @@ function DashboardPage() {
 }
 
 export default withAuth(DashboardPage);
+
+    

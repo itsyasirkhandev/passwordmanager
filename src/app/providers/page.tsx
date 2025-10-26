@@ -12,7 +12,7 @@ import ProviderList from './provider-list';
 function ProvidersPage() {
   const { folders, addFolder, selectFolder, selectTag, allTags, selectedFolderId, selectedTag } = useVault();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
-  const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true);
+  const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(false);
 
   const toggleSidebar = () => {
     const isMobile = window.innerWidth < 768;
@@ -62,3 +62,5 @@ function ProvidersPage() {
 }
 
 export default withAuth(ProvidersPage);
+
+    

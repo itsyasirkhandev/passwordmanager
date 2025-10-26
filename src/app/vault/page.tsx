@@ -13,7 +13,7 @@ import withAuth from "@/components/withAuth";
 function VaultPage() {
   const { folders, addFolder, selectFolder, selectTag, allTags, selectedFolderId, selectedTag } = useVault();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
-  const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true);
+  const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(false);
 
   const toggleSidebar = () => {
     const isMobile = window.innerWidth < 768;
@@ -69,3 +69,5 @@ function VaultPage() {
 
 export default withAuth(VaultPage);
 
+
+    
