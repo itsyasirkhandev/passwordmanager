@@ -9,7 +9,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/componen
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PlusCircle, Loader, Globe } from 'lucide-react';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
@@ -31,7 +31,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { useToast } from '@/hooks/use-toast';
 import { useVault } from '@/context/vault-context';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PasswordFormDialog, type PasswordEntry, type PasswordFormValues } from '@/app/vault/password-form-dialog';
+import { type PasswordEntry } from '@/app/vault/password-form-dialog';
+import { AddAccountDialog, ViewAccountDialog } from './account-dialogs';
 
 
 export type Provider = {
@@ -52,12 +53,15 @@ export default function ProviderList() {
   const { user } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
-  const { passwords, folders, addOrUpdatePassword } = useVault();
+  const { passwords, folders, addOrUpdatePassword, getDecryptedPassword } = useVault();
   const [isProviderDialogOpen, setIsProviderDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  const [isAccountFormOpen, setIsAccountFormOpen] = useState(false);
+  const [isAddAccountDialogOpen, setIsAddAccountDialogOpen] = useState(false);
+  const [isViewAccountDialogOpen, setIsViewAccountDialogOpen] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<Provider | null>(null);
+  const [selectedAccount, setSelectedAccount] = useState<PasswordEntry | null>(null);
+
 
   const providersCol = useMemoFirebase(() => {
     if (!user) return null;
@@ -89,12 +93,17 @@ export default function ProviderList() {
     }
   };
   
-  const handleOpenAccountForm = (provider: Provider) => {
+  const handleOpenAddAccountForm = (provider: Provider) => {
     setSelectedProvider(provider);
-    setIsAccountFormOpen(true);
+    setIsAddAccountDialogOpen(true);
+  };
+  
+  const handleOpenViewAccountDialog = (account: PasswordEntry) => {
+    setSelectedAccount(account);
+    setIsViewAccountDialogOpen(true);
   };
 
-  const handleSubmitAccount = async (data: PasswordFormValues) => {
+  const handleSubmitAccount = async (data: { username: string; password: string }) => {
     if (!selectedProvider) return;
     
     const providerAccounts = passwords.filter(p => p.url === selectedProvider.url);
@@ -104,6 +113,7 @@ export default function ProviderList() {
         ...data,
         serviceName,
         url: selectedProvider.url,
+        folderId: folders?.[0]?.id // Default to the first folder
     };
 
     await addOrUpdatePassword(accountData);
@@ -218,18 +228,17 @@ export default function ProviderList() {
               <AccordionContent className="p-4 pt-0">
                   <div className="space-y-2">
                     {provider.accounts.length > 0 ? provider.accounts.map(acc => (
-                        <div key={acc.id} className="flex justify-between items-center p-2 rounded-md bg-muted/50">
+                        <div key={acc.id} className="flex justify-between items-center p-3 rounded-md bg-muted/50 hover:bg-muted cursor-pointer" onClick={() => handleOpenViewAccountDialog(acc)}>
                             <div>
                                 <p className="font-medium">{acc.serviceName}</p>
                                 <p className="text-sm text-muted-foreground">{acc.username}</p>
                             </div>
-                            {/* Further actions for each account can be added here */}
                         </div>
                     )) : (
                         <p className="text-sm text-muted-foreground text-center py-4">No accounts added for this provider yet.</p>
                     )}
                   </div>
-                  <Button className="mt-4 w-full" variant="outline" onClick={() => handleOpenAccountForm(provider)}>
+                  <Button className="mt-4 w-full" variant="outline" onClick={() => handleOpenAddAccountForm(provider)}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Add Account
                  </Button>
               </AccordionContent>
@@ -237,13 +246,18 @@ export default function ProviderList() {
           ))}
         </Accordion>
       )}
-       <PasswordFormDialog
-        isOpen={isAccountFormOpen}
-        onOpenChange={setIsAccountFormOpen}
+       <AddAccountDialog
+        isOpen={isAddAccountDialogOpen}
+        onOpenChange={setIsAddAccountDialogOpen}
         onSubmit={handleSubmitAccount}
-        folders={folders}
-        defaultFolderId={folders?.[0]?.id}
+        providerName={selectedProvider?.name || ''}
       />
+      <ViewAccountDialog
+        isOpen={isViewAccountDialogOpen}
+        onOpenChange={setIsViewAccountDialogOpen}
+        account={selectedAccount}
+        getDecryptedPassword={getDecryptedPassword}
+       />
     </div>
   );
 }
