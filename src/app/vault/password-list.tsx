@@ -9,6 +9,7 @@ import { PasswordFormDialog, type PasswordEntry, type PasswordFormValues } from 
 import { PasswordDetailSheet } from "./password-detail-sheet";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { type Folder } from "@/components/folder-sidebar";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -598,3 +599,5 @@ export default function PasswordList({ selectedFolderId, selectedTag, folders }:
     </>
   );
 }
+
+    
