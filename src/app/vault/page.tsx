@@ -42,7 +42,7 @@ function VaultPage() {
         "flex-1 grid transition-all duration-300 overflow-hidden",
         isDesktopSidebarOpen ? "md:grid-cols-[280px_1fr] lg:grid-cols-[320px_1fr]" : "md:grid-cols-[80px_1fr]"
         )}>
-        <aside className={cn("hidden md:block transition-all duration-300 overflow-hidden", isDesktopSidebarOpen ? "w-[280px] lg:w-[320px]" : "w-[80px]")}>
+        <aside className={cn("hidden md:block transition-all duration-300", isDesktopSidebarOpen ? "w-[280px] lg:w-[320px]" : "w-[80px]")}>
           <FolderSidebar
             folders={folders}
             tags={allTags}
@@ -54,13 +54,13 @@ function VaultPage() {
             isCollapsed={!isDesktopSidebarOpen}
           />
         </aside>
-        <div className="p-0 sm:p-6 lg:p-8 flex flex-col overflow-hidden">
+        <main className="p-0 sm:p-6 lg:p-8 flex flex-col overflow-y-auto">
             <PasswordList 
               selectedFolderId={selectedFolderId}
               selectedTag={selectedTag}
               folders={folders} 
             />
-        </div>
+        </main>
       </div>
     </div>
   );
