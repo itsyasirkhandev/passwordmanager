@@ -262,10 +262,19 @@ export function FolderSidebar({
                 </Button>
             </div>
             ) : (
-                <Button variant="outline" className="w-full" onClick={handleAddClick}>
-                    <Plus className={cn("h-5 w-5", !isCollapsed && "mr-2")} />
-                    {!isCollapsed && 'New Folder'}
-                </Button>
+                <TooltipProvider>
+                    <Tooltip delayDuration={0}>
+                        <TooltipTrigger asChild>
+                            <Button variant="outline" className="w-full" onClick={handleAddClick}>
+                                <Plus className={cn("h-5 w-5", !isCollapsed && "mr-2")} />
+                                {!isCollapsed && 'New Folder'}
+                            </Button>
+                        </TooltipTrigger>
+                        {isCollapsed && (
+                            <TooltipContent side="right">New Folder</TooltipContent>
+                        )}
+                    </Tooltip>
+                </TooltipProvider>
             )}
         </div>
     </TooltipProvider>
@@ -298,3 +307,5 @@ export function MobileSidebar({ isOpen, onOpenChange, ...props}: MobileSidebarPr
         </Sheet>
     )
 }
+
+    
