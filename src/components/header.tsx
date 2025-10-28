@@ -7,6 +7,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { useAuth, useUser } from "@/firebase";
+import { CommandPalette } from "@/components/command-palette";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,9 +23,11 @@ import { useRouter } from "next/navigation";
 
 type HeaderProps = {
     onMenuClick?: () => void;
+    onAddPassword?: () => void;
+    onViewPassword?: (id: string) => void;
 }
 
-export default function Header({ onMenuClick }: HeaderProps) {
+export default function Header({ onMenuClick, onAddPassword, onViewPassword }: HeaderProps) {
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
   const { toast } = useToast();
@@ -69,6 +72,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
             </Link>
           </div>
           <div className="flex items-center gap-2 sm:gap-4">
+            {user && <CommandPalette onAddPassword={onAddPassword} onViewPassword={onViewPassword} />}
             <ThemeToggle />
             {isUserLoading ? (
               <div className="h-8 w-8 bg-muted rounded-full animate-pulse" />

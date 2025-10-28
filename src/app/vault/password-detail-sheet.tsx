@@ -27,12 +27,14 @@ import {
   ShieldAlert,
   Eye,
   EyeOff,
+  History,
 } from "lucide-react";
 import { type PasswordEntry } from "./password-form-dialog";
 import { cn } from "@/lib/utils";
 import { format, formatDistanceToNow } from "date-fns";
 import { useState } from "react";
 import { useVault } from "@/context/vault-context";
+import { PasswordHistoryDialog } from "@/components/password-history-dialog";
 
 
 type PasswordDetailSheetProps = {
@@ -73,7 +75,19 @@ export function PasswordDetailSheet({
   onRestore,
 }: PasswordDetailSheetProps) {
   const [isPasswordRevealed, setIsPasswordRevealed] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const { getDecryptedPassword } = useVault();
+
+  const handleTogglePasswordVisibility = () => {
+    if (!isPasswordRevealed) {
+      setIsPasswordRevealed(true);
+      setTimeout(() => {
+        setIsPasswordRevealed(false);
+      }, 30000);
+    } else {
+      setIsPasswordRevealed(false);
+    }
+  };
 
   if (!entry) return null;
 
@@ -107,7 +121,15 @@ export function PasswordDetailSheet({
         </SheetHeader>
         <div className="flex-1 overflow-y-auto pr-6 -mr-6 space-y-6 py-4">
           <div className="space-y-4">
-            <h3 className="font-semibold text-lg">Login Details</h3>
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-lg">Login Details</h3>
+              {entry.passwordHistory && entry.passwordHistory.length > 0 && (
+                <Button variant="ghost" size="sm" onClick={() => setIsHistoryOpen(true)}>
+                  <History className="h-4 w-4 mr-2" />
+                  History ({entry.passwordHistory.length})
+                </Button>
+              )}
+            </div>
             <div className="space-y-3">
               <div className="flex flex-col gap-1">
                 <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
@@ -138,7 +160,7 @@ export function PasswordDetailSheet({
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => setIsPasswordRevealed(!isPasswordRevealed)}
+                      onClick={handleTogglePasswordVisibility}
                     >
                       {isPasswordRevealed ? (
                         <EyeOff className="h-4 w-4" />
@@ -254,6 +276,12 @@ export function PasswordDetailSheet({
           )}
         </SheetFooter>
       </SheetContent>
+      <PasswordHistoryDialog
+        isOpen={isHistoryOpen}
+        onOpenChange={setIsHistoryOpen}
+        history={entry.passwordHistory}
+        serviceName={entry.serviceName}
+      />
     </Sheet>
   );
 }

@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { Eye, EyeOff, PlusCircle, Copy, Check, Search, X, MoreHorizontal, Pencil, Trash2, Undo, ShieldAlert, KeyRound, Star, Filter, SortAsc, Download, User as UserIcon } from "lucide-react";
+import { Eye, EyeOff, PlusCircle, Copy, Check, Search, X, MoreHorizontal, Pencil, Trash2, Undo, ShieldAlert, KeyRound, Star, Filter, SortAsc, Download, Upload, User as UserIcon } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { PasswordFormDialog, type PasswordEntry, type PasswordFormValues } from "./password-form-dialog";
@@ -26,6 +26,13 @@ import {
   DropdownMenuSubTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -41,6 +48,7 @@ import { PasswordStrengthPill } from "@/components/password-strength-indicator";
 import { ExportDialog } from "./export-dialog";
 import { useVault } from "@/context/vault-context";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ImportDialog } from "@/components/import-dialog";
 
 
 export type { PasswordEntry };
@@ -52,9 +60,21 @@ type PasswordListProps = {
   selectedFolderId: string | null;
   selectedTag: string | null;
   folders: Folder[];
+  externalAddPasswordOpen?: boolean;
+  onExternalAddPasswordChange?: (open: boolean) => void;
+  externalViewPasswordId?: string | null;
+  onExternalViewPasswordChange?: (id: string | null) => void;
 };
 
-export default function PasswordList({ selectedFolderId, selectedTag, folders }: PasswordListProps) {
+export default function PasswordList({
+  selectedFolderId,
+  selectedTag,
+  folders,
+  externalAddPasswordOpen,
+  onExternalAddPasswordChange,
+  externalViewPasswordId,
+  onExternalViewPasswordChange,
+}: PasswordListProps) {
   const { 
     passwords, 
     isLoadingPasswords,
@@ -68,8 +88,21 @@ export default function PasswordList({ selectedFolderId, selectedTag, folders }:
   const [revealedPasswords, setRevealedPasswords] = useState<Record<string, boolean>>({});
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const [editingPassword, setEditingPassword] = useState<PasswordEntry | null>(null);
   const [viewingPasswordId, setViewingPasswordId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (externalAddPasswordOpen !== undefined) {
+      setIsFormOpen(externalAddPasswordOpen);
+    }
+  }, [externalAddPasswordOpen]);
+
+  useEffect(() => {
+    if (externalViewPasswordId !== undefined) {
+      setViewingPasswordId(externalViewPasswordId);
+    }
+  }, [externalViewPasswordId]);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -167,12 +200,26 @@ export default function PasswordList({ selectedFolderId, selectedTag, folders }:
   };
 
   const togglePasswordVisibility = (id: string) => {
-    setRevealedPasswords((prev) => ({ ...prev, [id]: !prev[id] }));
+    setRevealedPasswords((prev) => {
+      const isCurrentlyRevealed = prev[id];
+      const newState = { ...prev, [id]: !isCurrentlyRevealed };
+
+      if (!isCurrentlyRevealed) {
+        setTimeout(() => {
+          setRevealedPasswords((current) => ({ ...current, [id]: false }));
+        }, 30000);
+      }
+
+      return newState;
+    });
   };
 
   const handleOpenAddForm = () => {
     setEditingPassword(null);
     setIsFormOpen(true);
+    if (onExternalAddPasswordChange) {
+      onExternalAddPasswordChange(true);
+    }
   }
 
   const handleOpenEditForm = (password: PasswordEntry) => {
@@ -189,6 +236,13 @@ export default function PasswordList({ selectedFolderId, selectedTag, folders }:
     await addOrUpdatePassword(data, editingPassword?.id);
     setIsFormOpen(false);
     setEditingPassword(null);
+    if (onExternalAddPasswordChange) {
+      onExternalAddPasswordChange(false);
+    }
+  };
+
+  const handleImportPasswords = async (passwords: PasswordFormValues[]) => {
+    await Promise.all(passwords.map(password => addOrUpdatePassword(password)));
   };
 
   const handleSelect = (id: string, checked: boolean) => {
@@ -239,6 +293,17 @@ export default function PasswordList({ selectedFolderId, selectedTag, folders }:
     setSearchQuery("");
   }
   
+  const handleBulkMoveToFolder = async (folderId: string) => {
+    const selectedPasswords = passwords.filter(p => selectedIds.includes(p.id));
+    await Promise.all(
+      selectedPasswords.map(password =>
+        addOrUpdatePassword({ ...password, folderId }, password.id)
+      )
+    );
+    setSelectedIds([]);
+    toast({ title: 'Success', description: `Moved ${selectedIds.length} password(s) to folder.` });
+  };
+
   const BulkActions = () => {
       if(selectedIds.length === 0) return null;
 
@@ -257,6 +322,18 @@ export default function PasswordList({ selectedFolderId, selectedTag, folders }:
 
       return (
         <div className="flex items-center gap-2">
+            <Select onValueChange={handleBulkMoveToFolder}>
+              <SelectTrigger className="w-[180px] h-9">
+                <SelectValue placeholder="Move to folder" />
+              </SelectTrigger>
+              <SelectContent>
+                {folders.map(folder => (
+                  <SelectItem key={folder.id} value={folder.id}>
+                    {folder.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Button variant="outline" size="sm" onClick={() => setIsExportOpen(true)}>
                 <Download className="mr-2 h-4 w-4" /> Export ({selectedIds.length})
             </Button>
@@ -316,9 +393,21 @@ export default function PasswordList({ selectedFolderId, selectedTag, folders }:
             <div className="flex w-full sm:w-auto items-center gap-2">
                 {!isTrashView && (
                     <>
-                        <Button variant="outline" onClick={() => setIsExportOpen(true)} className="hidden sm:inline-flex">
-                            <Download className="mr-2 h-4 w-4" /> Export
-                        </Button>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline" className="hidden sm:inline-flex">
+                                    <Download className="mr-2 h-4 w-4" /> Import/Export
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent>
+                                <DropdownMenuItem onClick={() => setIsImportOpen(true)}>
+                                    <Upload className="mr-2 h-4 w-4" /> Import
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setIsExportOpen(true)}>
+                                    <Download className="mr-2 h-4 w-4" /> Export
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                         <Button onClick={handleOpenAddForm} className="whitespace-nowrap w-full sm:w-auto">
                             <PlusCircle className="mr-2 h-4 w-4" />
                             Add Password
@@ -550,7 +639,12 @@ export default function PasswordList({ selectedFolderId, selectedTag, folders }:
       </Card>
       <PasswordFormDialog
         isOpen={isFormOpen}
-        onOpenChange={setIsFormOpen}
+        onOpenChange={(open) => {
+          setIsFormOpen(open);
+          if (onExternalAddPasswordChange) {
+            onExternalAddPasswordChange(open);
+          }
+        }}
         onSubmit={handleSubmitPassword}
         initialData={editingPassword}
         folders={folders}
@@ -559,7 +653,14 @@ export default function PasswordList({ selectedFolderId, selectedTag, folders }:
       <PasswordDetailSheet
         entry={viewingPassword}
         isOpen={!!viewingPassword}
-        onOpenChange={(open) => !open && setViewingPasswordId(null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setViewingPasswordId(null);
+            if (onExternalViewPasswordChange) {
+              onExternalViewPasswordChange(null);
+            }
+          }
+        }}
         onEdit={handleOpenEditForm}
         onDelete={(id) => handleDeleteRequest([id], isTrashView)}
         onToggleFavorite={(id, isFavorite) => handleToggleFavorite(id, isFavorite)}
@@ -595,6 +696,12 @@ export default function PasswordList({ selectedFolderId, selectedTag, folders }:
         currentFolderId={selectedFolderId}
         currentTag={selectedTag}
         isTrashView={isTrashView}
+       />
+       <ImportDialog
+        isOpen={isImportOpen}
+        onOpenChange={setIsImportOpen}
+        onImport={handleImportPasswords}
+        defaultFolderId={selectedFolderId || folders[0]?.id || ''}
        />
     </>
   );

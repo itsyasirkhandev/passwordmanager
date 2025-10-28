@@ -6,6 +6,9 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
+import { useVault } from "@/context/vault-context";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertTriangle } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -32,6 +35,8 @@ import type { Folder } from "@/components/folder-sidebar";
 import { TagInput } from "@/components/tag-input";
 import { PasswordStrengthIndicator } from "@/components/password-strength-indicator";
 import { Timestamp } from "firebase/firestore";
+import { type PasswordHistoryEntry } from "@/lib/password-history";
+import { NotesTemplateDialog } from "@/components/notes-template-dialog";
 
 const passwordSchema = z.object({
   serviceName: z.string().min(1, "Service name is required."),
@@ -44,12 +49,13 @@ const passwordSchema = z.object({
   isFavorite: z.boolean().optional(),
 });
 
-export type PasswordEntry = z.infer<typeof passwordSchema> & { 
+export type PasswordEntry = z.infer<typeof passwordSchema> & {
   id: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
   deletedAt?: Timestamp | null;
   userId?: string;
+  passwordHistory?: PasswordHistoryEntry[];
 };
 export type PasswordFormValues = z.infer<typeof passwordSchema>;
 
@@ -71,6 +77,8 @@ export function PasswordFormDialog({
   defaultFolderId
 }: PasswordFormDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
+  const { getDuplicatePasswordCount, getPasswordsUsingPassword } = useVault();
   const form = useForm<PasswordFormValues>({
     resolver: zodResolver(passwordSchema),
     defaultValues: {
@@ -120,8 +128,16 @@ export function PasswordFormDialog({
   const handleUsePassword = (password: string) => {
     form.setValue("password", password, { shouldValidate: true });
   };
-  
+
   const passwordValue = form.watch("password");
+  const duplicateCount = passwordValue ? getDuplicatePasswordCount(passwordValue, initialData?.id) : 0;
+  const duplicateEntries = passwordValue && duplicateCount > 0 ? getPasswordsUsingPassword(passwordValue, initialData?.id) : [];
+
+  const handleSelectTemplate = (template: string) => {
+    const currentNotes = form.getValues("notes") || "";
+    const newNotes = currentNotes ? `${currentNotes}\n\n${template}` : template;
+    form.setValue("notes", newNotes);
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -199,6 +215,20 @@ export function PasswordFormDialog({
                   </div>
                   <FormMessage />
                   <PasswordStrengthIndicator password={passwordValue} />
+                  {duplicateCount > 0 && (
+                    <Alert variant="destructive" className="mt-2">
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertDescription>
+                        This password is already used for {duplicateCount} other {duplicateCount === 1 ? 'account' : 'accounts'}:
+                        <ul className="list-disc pl-5 mt-1">
+                          {duplicateEntries.slice(0, 3).map(entry => (
+                            <li key={entry.id} className="text-xs">{entry.serviceName}</li>
+                          ))}
+                          {duplicateEntries.length > 3 && <li className="text-xs">and {duplicateEntries.length - 3} more...</li>}
+                        </ul>
+                      </AlertDescription>
+                    </Alert>
+                  )}
                 </FormItem>
               )}
             />
@@ -250,11 +280,22 @@ export function PasswordFormDialog({
               name="notes"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Notes</FormLabel>
+                  <div className="flex items-center justify-between">
+                    <FormLabel>Notes</FormLabel>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setIsTemplateDialogOpen(true)}
+                      className="h-auto p-1 text-xs"
+                    >
+                      Use Template
+                    </Button>
+                  </div>
                   <FormControl>
                     <Textarea
                       placeholder="e.g., Security questions, recovery codes..."
-                      className="resize-none"
+                      className="resize-none min-h-[100px]"
                       {...field}
                     />
                   </FormControl>
@@ -273,6 +314,11 @@ export function PasswordFormDialog({
         </Form>
         </div>
       </DialogContent>
+      <NotesTemplateDialog
+        isOpen={isTemplateDialogOpen}
+        onOpenChange={setIsTemplateDialogOpen}
+        onSelectTemplate={handleSelectTemplate}
+      />
     </Dialog>
   );
 }

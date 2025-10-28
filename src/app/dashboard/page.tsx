@@ -231,7 +231,7 @@ function DashboardPage() {
 
   return (
     <div className="flex flex-col h-screen bg-background overflow-hidden">
-      <Header onMenuClick={toggleSidebar} />
+      <Header onMenuClick={toggleSidebar} onAddPassword={() => {}} onViewPassword={() => {}} />
        <MobileSidebar
         isOpen={isMobileSidebarOpen}
         onOpenChange={setIsMobileSidebarOpen}

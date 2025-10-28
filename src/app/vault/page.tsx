@@ -14,6 +14,8 @@ function VaultPage() {
   const { folders, addFolder, selectFolder, selectTag, allTags, selectedFolderId, selectedTag } = useVault();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(false);
+  const [addPasswordDialogOpen, setAddPasswordDialogOpen] = useState(false);
+  const [viewPasswordId, setViewPasswordId] = useState<string | null>(null);
 
   const toggleSidebar = () => {
     const isMobile = window.innerWidth < 768;
@@ -26,7 +28,11 @@ function VaultPage() {
 
   return (
     <div className="flex flex-col h-screen bg-background overflow-hidden">
-      <Header onMenuClick={toggleSidebar} />
+      <Header
+        onMenuClick={toggleSidebar}
+        onAddPassword={() => setAddPasswordDialogOpen(true)}
+        onViewPassword={(id) => setViewPasswordId(id)}
+      />
       <MobileSidebar
         isOpen={isMobileSidebarOpen}
         onOpenChange={setIsMobileSidebarOpen}
@@ -55,10 +61,14 @@ function VaultPage() {
           />
         </aside>
         <main className="p-0 sm:p-6 lg:p-8 flex flex-col overflow-hidden">
-            <PasswordList 
+            <PasswordList
               selectedFolderId={selectedFolderId}
               selectedTag={selectedTag}
-              folders={folders} 
+              folders={folders}
+              externalAddPasswordOpen={addPasswordDialogOpen}
+              onExternalAddPasswordChange={setAddPasswordDialogOpen}
+              externalViewPasswordId={viewPasswordId}
+              onExternalViewPasswordChange={setViewPasswordId}
             />
         </main>
       </div>

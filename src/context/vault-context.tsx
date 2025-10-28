@@ -21,6 +21,7 @@ import type { Folder } from '@/components/folder-sidebar';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { addToPasswordHistory, type PasswordHistoryEntry } from '@/lib/password-history';
 
 const ENCRYPTION_KEY = process.env.NEXT_PUBLIC_ENCRYPTION_KEY;
 
@@ -70,6 +71,8 @@ type VaultContextType = {
   restorePassword: (id: string) => Promise<void>;
   toggleFavorite: (id: string, isFavorite: boolean) => Promise<void>;
   getDecryptedPassword: (entry: PasswordEntry) => string;
+  getDuplicatePasswordCount: (password: string, excludeId?: string) => number;
+  getPasswordsUsingPassword: (password: string, excludeId?: string) => PasswordEntry[];
 };
 
 const VaultContext = createContext<VaultContextType | undefined>(undefined);
@@ -203,14 +206,27 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     }
     const collectionPath = `users/${user.uid}/vaults/${data.folderId}/credentials`;
     const docRef = id ? doc(firestore, collectionPath, id) : doc(collection(firestore, collectionPath));
-    
+
     const now = Timestamp.now();
     const originalPasswords = passwords;
+
+    let passwordHistory: PasswordHistoryEntry[] | undefined;
+    if (id) {
+      const existingPassword = passwords.find(p => p.id === id);
+      if (existingPassword && existingPassword.password !== encryptPassword(data.password)) {
+        passwordHistory = addToPasswordHistory(
+          existingPassword.passwordHistory,
+          existingPassword.password
+        );
+      } else {
+        passwordHistory = existingPassword?.passwordHistory;
+      }
+    }
 
     // Optimistic update
     if (id) {
         // Update existing password
-        setPasswords(prev => prev.map(p => p.id === id ? { ...p, ...data, updatedAt: now } : p));
+        setPasswords(prev => prev.map(p => p.id === id ? { ...p, ...data, updatedAt: now, passwordHistory } : p));
     } else {
         // Add new password
         const newPassword: PasswordEntry = {
@@ -222,11 +238,12 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
         };
         setPasswords(prev => [...prev, newPassword]);
     }
-    
+
     const dataToSave = {
       ...data,
-      password: encryptPassword(data.password), // Encrypt for Firestore
+      password: encryptPassword(data.password),
       updatedAt: serverTimestamp(),
+      ...(passwordHistory && { passwordHistory }),
       ...(id ? {} : { createdAt: serverTimestamp(), userId: user.uid }),
     };
 
@@ -235,8 +252,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
           toast({ title: 'Success', description: id ? 'Password updated.' : 'Password added.' });
       })
       .catch(serverError => {
-          // Revert optimistic update on error
-          setPasswords(originalPasswords); 
+          setPasswords(originalPasswords);
           const permissionError = new FirestorePermissionError({
               path: docRef.path,
               operation: id ? 'update' : 'create',
@@ -355,6 +371,22 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     return decryptPassword(entry.password);
   }
 
+  const getDuplicatePasswordCount = (password: string, excludeId?: string): number => {
+    return passwords.filter(p =>
+      !p.deletedAt &&
+      p.id !== excludeId &&
+      decryptPassword(p.password) === password
+    ).length;
+  };
+
+  const getPasswordsUsingPassword = (password: string, excludeId?: string): PasswordEntry[] => {
+    return passwords.filter(p =>
+      !p.deletedAt &&
+      p.id !== excludeId &&
+      decryptPassword(p.password) === password
+    );
+  };
+
   const allTags = useMemo(() => {
     const tags = new Set<string>();
     passwords?.forEach(p => {
@@ -380,6 +412,8 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     restorePassword,
     toggleFavorite,
     getDecryptedPassword,
+    getDuplicatePasswordCount,
+    getPasswordsUsingPassword,
   };
 
   return <VaultContext.Provider value={value}>{children}</VaultContext.Provider>;
