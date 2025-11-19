@@ -42,8 +42,8 @@ const NavLink = ({ href, onClick, isActive, isCollapsed, label, icon: Icon, asCh
             variant={isActive && !isCollapsed ? "secondary" : "ghost"}
             className={cn(
               "w-full text-base", 
-              isCollapsed ? "justify-center px-0" : "justify-start",
-              isActive && (isCollapsed ? "text-primary" : "bg-primary/10 text-primary hover:bg-primary/20")
+              isCollapsed ? "justify-center px-0 hover:bg-accent" : "justify-start",
+              isActive && (isCollapsed ? "bg-accent text-primary" : "bg-primary/10 text-primary hover:bg-primary/20")
             )}
             onClick={onClick}
             asChild={asChild}
