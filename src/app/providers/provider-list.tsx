@@ -220,8 +220,8 @@ export default function ProviderList() {
               <AccordionTrigger className="p-4 hover:no-underline">
                   <div className="flex flex-col items-start text-left">
                       <h2 className="text-lg font-semibold">{provider.name}</h2>
-                      <a href={provider.url} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline flex items-center gap-1 break-all" onClick={e => e.stopPropagation()}>
-                          <Globe className="h-3 w-3" />{provider.url}
+                      <a href={provider.url} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                          <Globe className="h-3 w-3" />{provider.url.length > 50 ? `${provider.url.slice(0, 50)}...` : provider.url}
                       </a>
                   </div>
               </AccordionTrigger>
