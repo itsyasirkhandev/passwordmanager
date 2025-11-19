@@ -29,7 +29,7 @@ import type { TokenEntry } from "@/context/token-context";
 
 const tokenSchema = z.object({
   name: z.string().min(1, "Token name is required."),
-  value: z.string().min(1, "Token value is required."),
+  value: z.string().optional(),
 });
 
 export type TokenFormValues = z.infer<typeof tokenSchema>;
@@ -55,14 +55,18 @@ export function TokenFormDialog({
       value: "",
     },
   });
+  
+  const isEditing = !!initialData;
 
   useEffect(() => {
     if (isOpen) {
-      if (initialData) {
+      if (isEditing) {
         form.reset({
           name: initialData.name,
           value: "" // Do not expose encrypted value in form
         });
+        // For editing, value is not required. It's only required on create.
+        form.clearErrors("value");
       } else {
         form.reset({
           name: "",
@@ -70,16 +74,20 @@ export function TokenFormDialog({
         });
       }
     }
-  }, [isOpen, initialData, form]);
+  }, [isOpen, initialData, isEditing, form]);
 
   const handleFormSubmit = async (values: TokenFormValues) => {
+    if (!isEditing && !values.value) {
+      form.setError("value", { type: "manual", message: "Token value is required." });
+      return;
+    }
+    
     setIsSubmitting(true);
     await onSubmit(values);
     setIsSubmitting(false);
     onOpenChange(false);
   };
 
-  const isEditing = !!initialData;
   const valuePlaceholder = isEditing ? "Enter new value to update" : "Enter token value";
 
   return (

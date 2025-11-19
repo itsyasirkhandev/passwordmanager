@@ -24,8 +24,10 @@ const tokenSchema = z.object({
 });
 
 export type TokenFormValues = z.infer<typeof tokenSchema>;
-export type TokenEntry = TokenFormValues & {
+export type TokenEntry = {
   id: string;
+  name: string;
+  value: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
   userId?: string;
@@ -56,7 +58,7 @@ const decryptToken = (encryptedValue: string): string => {
 type TokenContextType = {
   tokens: TokenEntry[];
   isLoadingTokens: boolean;
-  addOrUpdateToken: (data: TokenFormValues, id?: string) => Promise<void>;
+  addOrUpdateToken: (data: Partial<TokenFormValues>, id?: string) => Promise<void>;
   deleteToken: (id: string) => Promise<void>;
   getDecryptedToken: (entry: TokenEntry) => string;
 };
@@ -75,7 +77,7 @@ export function TokenProvider({ children }: { children: React.ReactNode }) {
 
   const { data: tokens, isLoading: isLoadingTokens } = useCollection<TokenEntry>(tokensCol);
 
-  const addOrUpdateToken = async (data: TokenFormValues, id?: string) => {
+  const addOrUpdateToken = async (data: Partial<TokenFormValues>, id?: string) => {
     if (!user) {
       toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in.' });
       return;
@@ -83,12 +85,22 @@ export function TokenProvider({ children }: { children: React.ReactNode }) {
     const collectionPath = `users/${user.uid}/tokens`;
     const docRef = id ? doc(firestore, collectionPath, id) : doc(collection(firestore, collectionPath));
 
-    const dataToSave = {
+    const isEditing = !!id;
+
+    const dataToSave: any = {
       ...data,
-      value: encryptToken(data.value),
       updatedAt: serverTimestamp(),
-      ...(id ? {} : { createdAt: serverTimestamp(), userId: user.uid }),
     };
+
+    if (data.value) {
+      dataToSave.value = encryptToken(data.value);
+    }
+
+    if (!isEditing) {
+        dataToSave.createdAt = serverTimestamp();
+        dataToSave.userId = user.uid;
+    }
+
 
     try {
       await setDoc(docRef, dataToSave, { merge: true });
