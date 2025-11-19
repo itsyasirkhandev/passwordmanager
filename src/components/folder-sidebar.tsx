@@ -9,8 +9,10 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Input } from "./ui/input";
 import { Separator } from "./ui/separator";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { Label } from "./ui/label";
 
 
 export type Folder = {
@@ -45,6 +47,7 @@ const NavLink = ({ href, onClick, isActive, isCollapsed, label, icon: Icon, asCh
               isCollapsed ? "justify-center rounded-lg h-12 w-12 p-0" : "justify-start",
               isActive ? "text-primary" : "text-muted-foreground hover:text-foreground",
               !isCollapsed && isActive && "bg-primary/10",
+               isCollapsed ? "hover:bg-accent" : "",
               isCollapsed && isActive ? "bg-primary/10" : "hover:bg-accent"
             )}
             onClick={onClick}
@@ -96,11 +99,16 @@ export function FolderSidebar({
   isCollapsed = false,
 }: FolderSidebarProps) {
   const [isAdding, setIsAdding] = useState(false);
+  const [isAddDialogVisible, setIsAddDialogVisible] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const pathname = usePathname();
 
   const handleAddClick = () => {
-    setIsAdding(true);
+    if (isCollapsed) {
+        setIsAddDialogVisible(true);
+    } else {
+        setIsAdding(true);
+    }
   };
 
   const handleCancelAdd = () => {
@@ -112,6 +120,7 @@ export function FolderSidebar({
     if (newFolderName.trim()) {
       onAddFolder(newFolderName.trim());
       handleCancelAdd();
+      setIsAddDialogVisible(false);
     }
   };
 
@@ -245,31 +254,29 @@ export function FolderSidebar({
         )}
 
         <div className="mt-auto">
-            {isAdding ? (
+            {isAdding && !isCollapsed ? (
             <div className="space-y-2">
-                {!isCollapsed && (
-                    <div className="relative">
-                        <Input
-                            type="text"
-                            placeholder="New folder name..."
-                            value={newFolderName}
-                            onChange={(e) => setNewFolderName(e.target.value)}
-                            onKeyDown={handleKeyDown}
-                            className="pr-8"
-                            autoFocus
-                        />
-                        <Button
-                            size="icon"
-                            variant="ghost"
-                            className="absolute right-0 top-0 h-full"
-                            onClick={handleCancelAdd}
-                        >
-                            <X className="h-4 w-4" />
-                        </Button>
-                    </div>
-                )}
+                <div className="relative">
+                    <Input
+                        type="text"
+                        placeholder="New folder name..."
+                        value={newFolderName}
+                        onChange={(e) => setNewFolderName(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        className="pr-8"
+                        autoFocus
+                    />
+                    <Button
+                        size="icon"
+                        variant="ghost"
+                        className="absolute right-0 top-0 h-full"
+                        onClick={handleCancelAdd}
+                    >
+                        <X className="h-4 w-4" />
+                    </Button>
+                </div>
                 <Button onClick={handleSaveNewFolder} className="w-full">
-                   {!isCollapsed ? 'Save Folder' : <Plus className="h-5 w-5" />}
+                   Save Folder
                 </Button>
             </div>
             ) : (
@@ -292,9 +299,36 @@ export function FolderSidebar({
   );
 
   return (
-    <div className={cn("bg-muted/40 p-4 flex flex-col gap-4 h-full overflow-y-auto", isCollapsed && "items-center")}>
-      {content}
-    </div>
+    <>
+        <div className={cn("bg-muted/40 p-4 flex flex-col gap-4 h-full overflow-y-auto", isCollapsed && "items-center")}>
+        {content}
+        </div>
+        <Dialog open={isAddDialogVisible} onOpenChange={setIsAddDialogVisible}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Create New Folder</DialogTitle>
+                    <DialogDescription>
+                        Enter a name for your new folder to help organize your passwords.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="py-4">
+                    <Label htmlFor="folder-name" className="sr-only">Folder Name</Label>
+                    <Input
+                        id="folder-name"
+                        value={newFolderName}
+                        onChange={(e) => setNewFolderName(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleSaveNewFolder()}
+                        placeholder="e.g., Social Media"
+                        autoFocus
+                    />
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsAddDialogVisible(false)}>Cancel</Button>
+                    <Button onClick={handleSaveNewFolder}>Save Folder</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    </>
   );
 }
 
@@ -318,3 +352,5 @@ export function MobileSidebar({ isOpen, onOpenChange, ...props}: MobileSidebarPr
         </Sheet>
     )
 }
+
+    
