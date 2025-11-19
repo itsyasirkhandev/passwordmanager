@@ -1,14 +1,14 @@
 
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, doc, setDoc, addDoc } from 'firebase/firestore';
-import { Button } from '@/components/ui/button';
+import { collection, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { PlusCircle, Loader, Globe } from 'lucide-react';
+import { PlusCircle, Loader, Globe, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -19,8 +19,23 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Accordion,
   AccordionContent,
@@ -62,6 +77,9 @@ export default function ProviderList() {
   const [selectedProvider, setSelectedProvider] = useState<Provider | null>(null);
   const [selectedAccount, setSelectedAccount] = useState<PasswordEntry | null>(null);
 
+  const [editingProvider, setEditingProvider] = useState<Provider | null>(null);
+  const [deleteConfirmation, setDeleteConfirmation] = useState<string | null>(null);
+
 
   const providersCol = useMemoFirebase(() => {
     if (!user) return null;
@@ -75,21 +93,67 @@ export default function ProviderList() {
     defaultValues: { name: '', url: '' },
   });
 
-  const handleAddProvider = async (values: ProviderFormValues) => {
-    if (!user) return;
+  useEffect(() => {
+    if (isProviderDialogOpen) {
+      if (editingProvider) {
+        providerForm.reset(editingProvider);
+      } else {
+        providerForm.reset({ name: '', url: '' });
+      }
+    }
+  }, [isProviderDialogOpen, editingProvider, providerForm]);
+
+  const handleOpenAddForm = () => {
+    setEditingProvider(null);
+    setIsProviderDialogOpen(true);
+  };
+
+  const handleOpenEditForm = (provider: Provider) => {
+    setEditingProvider(provider);
+    setIsProviderDialogOpen(true);
+  };
+
+  const handleDeleteRequest = (id: string) => {
+    setDeleteConfirmation(id);
+  };
+
+  const handleProviderSubmit = async (values: ProviderFormValues) => {
+    if (!user || !providersCol) return;
     setIsSubmitting(true);
-    const newProviderRef = doc(providersCol!);
-    const newProvider = { ...values, userId: user.uid, id: newProviderRef.id };
+    
     try {
-      await setDoc(newProviderRef, newProvider);
-      toast({ title: 'Success', description: 'Provider added successfully.' });
+      if (editingProvider) {
+        // Update existing provider
+        const docRef = doc(firestore, 'users', user.uid, 'providers', editingProvider.id);
+        await updateDoc(docRef, values);
+        toast({ title: 'Success', description: 'Provider updated successfully.' });
+      } else {
+        // Add new provider
+        const newProviderRef = doc(providersCol);
+        const newProvider = { ...values, userId: user.uid, id: newProviderRef.id };
+        await setDoc(newProviderRef, newProvider);
+        toast({ title: 'Success', description: 'Provider added successfully.' });
+      }
       setIsProviderDialogOpen(false);
-      providerForm.reset();
+      setEditingProvider(null);
     } catch (error) {
-      console.error('Error adding provider:', error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to add provider.' });
+      console.error('Error saving provider:', error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to save provider.' });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteConfirmation || !user) return;
+    const docRef = doc(firestore, 'users', user.uid, 'providers', deleteConfirmation);
+    try {
+      await deleteDoc(docRef);
+      toast({ title: 'Success', description: 'Provider deleted.' });
+      setDeleteConfirmation(null);
+    } catch(error) {
+        console.error('Error deleting provider:', error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to delete provider.' });
     }
   };
   
@@ -154,19 +218,19 @@ export default function ProviderList() {
             <h1 className="text-3xl font-bold">Providers</h1>
              <Dialog open={isProviderDialogOpen} onOpenChange={setIsProviderDialogOpen}>
                 <DialogTrigger asChild>
-                    <Button>
-                    <PlusCircle className="mr-2" /> Add Provider
+                    <Button onClick={handleOpenAddForm}>
+                      <PlusCircle className="mr-2" /> Add Provider
                     </Button>
                 </DialogTrigger>
                 <DialogContent>
                     <DialogHeader>
-                    <DialogTitle>Add New Provider</DialogTitle>
+                    <DialogTitle>{editingProvider ? 'Edit Provider' : 'Add New Provider'}</DialogTitle>
                     <DialogDescription>
-                        Enter the details for a new service provider.
+                        {editingProvider ? 'Update the details for this provider.' : 'Enter the details for a new service provider.'}
                     </DialogDescription>
                     </DialogHeader>
                     <Form {...providerForm}>
-                    <form onSubmit={providerForm.handleSubmit(handleAddProvider)} className="space-y-4">
+                    <form onSubmit={providerForm.handleSubmit(handleProviderSubmit)} className="space-y-4">
                         <FormField
                         control={providerForm.control}
                         name="name"
@@ -199,7 +263,7 @@ export default function ProviderList() {
                         </Button>
                         <Button type="submit" disabled={isSubmitting}>
                             {isSubmitting && <Loader className="mr-2 animate-spin" />}
-                            Save Provider
+                            {editingProvider ? 'Save Changes' : 'Save Provider'}
                         </Button>
                         </DialogFooter>
                     </form>
@@ -218,11 +282,30 @@ export default function ProviderList() {
           {providersWithAccounts.map((provider) => (
             <AccordionItem value={provider.id} key={provider.id} className="border rounded-lg bg-card">
               <AccordionTrigger className="p-4 hover:no-underline">
-                  <div className="flex flex-col items-start text-left">
-                      <h2 className="text-lg font-semibold">{provider.name}</h2>
-                      <a href={provider.url} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                          <Globe className="h-3 w-3" />{provider.url.length > 50 ? `${provider.url.slice(0, 50)}...` : provider.url}
-                      </a>
+                  <div className="flex justify-between items-center w-full">
+                    <div className="flex flex-col items-start text-left">
+                        <h2 className="text-lg font-semibold">{provider.name}</h2>
+                        <a href={provider.url} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                            <Globe className="h-3 w-3" />{provider.url.length > 50 ? `${provider.url.slice(0, 50)}...` : provider.url}
+                        </a>
+                    </div>
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                  <MoreHorizontal />
+                              </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleOpenEditForm(provider)}>
+                                  <Pencil className="mr-2" /> Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDeleteRequest(provider.id)}>
+                                  <Trash2 className="mr-2" /> Delete
+                              </DropdownMenuItem>
+                          </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
               </AccordionTrigger>
               <AccordionContent className="p-4 pt-0">
@@ -258,6 +341,24 @@ export default function ProviderList() {
         account={selectedAccount}
         getDecryptedPassword={getDecryptedPassword}
        />
+        <AlertDialog open={!!deleteConfirmation} onOpenChange={(open) => !open && setDeleteConfirmation(null)}>
+            <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete this provider. Associated accounts will NOT be deleted.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setDeleteConfirmation(null)}>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={confirmDelete} className={buttonVariants({ variant: "destructive" })}>
+                Delete Permanently
+                </AlertDialogAction>
+            </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
     </div>
   );
 }
+
+    
