@@ -4,7 +4,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Folder as FolderIcon, Plus, X, type LucideIcon, Tag, LayoutDashboard, Star, Trash2, Network } from "lucide-react";
+import { Folder as FolderIcon, Plus, X, type LucideIcon, Tag, LayoutDashboard, Star, Trash2, Network, Key } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Input } from "./ui/input";
@@ -178,6 +178,15 @@ export function FolderSidebar({
                 icon={Network}
                 asChild
             />
+             <NavLink 
+                href="/tokens"
+                onClick={onClose}
+                isActive={pathname === "/tokens"}
+                isCollapsed={isCollapsed}
+                label="API Tokens"
+                icon={Key}
+                asChild
+            />
         </nav>
 
         <Separator />
@@ -307,5 +316,3 @@ export function MobileSidebar({ isOpen, onOpenChange, ...props}: MobileSidebarPr
         </Sheet>
     )
 }
-
-    

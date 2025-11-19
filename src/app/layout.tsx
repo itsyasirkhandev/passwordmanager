@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { cn } from "@/lib/utils";
 import { VaultProvider } from "@/context/vault-context";
+import { TokenProvider } from "@/context/token-context";
 import { ThemeProvider } from "@/components/theme-provider";
 import { FirebaseClientProvider } from "@/firebase/client-provider";
 
@@ -37,9 +38,11 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <FirebaseClientProvider>
-            <VaultProvider>
-                {children}
-            </VaultProvider>
+            <TokenProvider>
+              <VaultProvider>
+                  {children}
+              </VaultProvider>
+            </TokenProvider>
           </FirebaseClientProvider>
           <Toaster />
         </ThemeProvider>
