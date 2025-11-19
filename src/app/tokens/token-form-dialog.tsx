@@ -65,8 +65,6 @@ export function TokenFormDialog({
           name: initialData.name,
           value: "" // Do not expose encrypted value in form
         });
-        // For editing, value is not required. It's only required on create.
-        form.clearErrors("value");
       } else {
         form.reset({
           name: "",
