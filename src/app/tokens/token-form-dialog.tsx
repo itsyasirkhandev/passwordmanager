@@ -60,7 +60,7 @@ export function TokenFormDialog({
 
   useEffect(() => {
     if (isOpen) {
-      if (isEditing) {
+      if (isEditing && initialData) {
         form.reset({
           name: initialData.name,
           value: "" // Do not expose encrypted value in form
