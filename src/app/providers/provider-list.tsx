@@ -282,33 +282,33 @@ export default function ProviderList() {
         <Accordion type="multiple" className="w-full space-y-4">
           {providersWithAccounts.map((provider) => (
             <AccordionItem value={provider.id} key={provider.id} className="border rounded-lg bg-card">
-              <AccordionTrigger className="p-4 hover:no-underline">
-                  <div className="flex justify-between items-center w-full">
+              <div className="flex items-center p-4">
+                <AccordionTrigger className="p-0 hover:no-underline flex-1">
                     <div className="flex flex-col items-start text-left">
                         <h2 className="text-lg font-semibold">{provider.name}</h2>
                         <a href={provider.url} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline flex items-center gap-1" onClick={e => e.stopPropagation()}>
                             <Globe className="h-3 w-3" />{provider.url.length > 50 ? `${provider.url.slice(0, 50)}...` : provider.url}
                         </a>
                     </div>
-                    <div onClick={(e) => e.stopPropagation()}>
-                      <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
-                                  <MoreHorizontal />
-                              </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => handleOpenEditForm(provider)}>
-                                  <Pencil className="mr-2" /> Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDeleteRequest(provider.id)}>
-                                  <Trash2 className="mr-2" /> Delete
-                              </DropdownMenuItem>
-                          </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
-              </AccordionTrigger>
+                </AccordionTrigger>
+                <div onClick={(e) => e.stopPropagation()}>
+                  <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreHorizontal />
+                          </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleOpenEditForm(provider)}>
+                              <Pencil className="mr-2" /> Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDeleteRequest(provider.id)}>
+                              <Trash2 className="mr-2" /> Delete
+                          </DropdownMenuItem>
+                      </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
               <AccordionContent className="p-4 pt-0">
                   <div className="space-y-2">
                     {provider.accounts.length > 0 ? provider.accounts.map(acc => (
@@ -361,9 +361,3 @@ export default function ProviderList() {
     </div>
   );
 }
-
-    
-
-    
-
-    
