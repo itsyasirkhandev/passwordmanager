@@ -283,27 +283,25 @@ export default function ProviderList() {
           {providersWithAccounts.map((provider) => (
             <AccordionItem value={provider.id} key={provider.id} className="border rounded-lg bg-card">
               <div className="flex items-center p-4">
-                <AccordionTrigger className="p-0 hover:no-underline flex-1 text-left">
-                  <div className="flex-1">
-                    <h2 className="text-lg font-semibold flex items-center">
-                      {provider.name}
-                    </h2>
-                    <a
-                      href={provider.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-primary hover:underline flex items-center gap-1.5"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <Globe className="h-3 w-3" />
-                      <span className="truncate max-w-[250px] sm:max-w-[350px]">
-                        {provider.url}
-                      </span>
-                    </a>
-                  </div>
-                </AccordionTrigger>
-                <div onClick={(e) => e.stopPropagation()} className="ml-4 flex-shrink-0">
-                  <DropdownMenu>
+                <div className="flex-1">
+                  <h2 className="text-lg font-semibold flex items-center">
+                    {provider.name}
+                  </h2>
+                  <a
+                    href={provider.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-primary hover:underline flex items-center gap-1.5"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Globe className="h-3 w-3" />
+                    <span className="truncate max-w-[250px] sm:max-w-[350px]">
+                      {provider.url.length > 50 ? `${provider.url.slice(0, 50)}...` : provider.url}
+                    </span>
+                  </a>
+                </div>
+                <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
+                    <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon" className="h-8 w-8">
                               <MoreHorizontal />
@@ -317,7 +315,8 @@ export default function ProviderList() {
                               <Trash2 className="mr-2" /> Delete
                           </DropdownMenuItem>
                       </DropdownMenuContent>
-                  </DropdownMenu>
+                    </DropdownMenu>
+                    <AccordionTrigger className="p-2 hover:no-underline" />
                 </div>
               </div>
               <AccordionContent className="p-4 pt-0">
