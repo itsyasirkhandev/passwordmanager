@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTokens, type TokenEntry } from '@/context/token-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
@@ -28,29 +28,43 @@ import { useToast } from '@/hooks/use-toast';
 import { buttonVariants } from '@/components/ui/button';
 import { formatDistanceToNow } from 'date-fns';
 
-export default function TokenList() {
+type TokenListProps = {
+    isFormOpen?: boolean;
+    onFormOpenChange?: (open: boolean) => void;
+};
+
+export default function TokenList({ isFormOpen, onFormOpenChange }: TokenListProps) {
   const { tokens, isLoadingTokens, addOrUpdateToken, deleteToken, getDecryptedToken } = useTokens();
   const { toast } = useToast();
 
-  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [internalIsFormOpen, setInternalIsFormOpen] = useState(false);
   const [editingToken, setEditingToken] = useState<TokenEntry | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState<string | null>(null);
   const [revealedTokens, setRevealedTokens] = useState<Record<string, boolean>>({});
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
 
+  const finalIsFormOpen = isFormOpen ?? internalIsFormOpen;
+  const finalOnFormOpenChange = onFormOpenChange ?? setInternalIsFormOpen;
+
+  useEffect(() => {
+    if (isFormOpen) {
+      handleOpenAddForm();
+    }
+  }, [isFormOpen]);
+
   const handleOpenAddForm = () => {
     setEditingToken(null);
-    setIsFormOpen(true);
+    finalOnFormOpenChange(true);
   };
 
   const handleOpenEditForm = (token: TokenEntry) => {
     setEditingToken(token);
-    setIsFormOpen(true);
+    finalOnFormOpenChange(true);
   };
 
   const handleSubmit = async (data: TokenFormValues) => {
     await addOrUpdateToken(data, editingToken?.id);
-    setIsFormOpen(false);
+    finalOnFormOpenChange(false);
     setEditingToken(null);
   };
 
@@ -169,8 +183,8 @@ export default function TokenList() {
       )}
 
       <TokenFormDialog
-        isOpen={isFormOpen}
-        onOpenChange={setIsFormOpen}
+        isOpen={finalIsFormOpen}
+        onOpenChange={finalOnFormOpenChange}
         onSubmit={handleSubmit}
         initialData={editingToken}
       />

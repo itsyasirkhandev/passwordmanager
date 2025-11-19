@@ -25,9 +25,10 @@ type HeaderProps = {
     onMenuClick?: () => void;
     onAddPassword?: () => void;
     onViewPassword?: (id: string) => void;
+    onAddToken?: () => void;
 }
 
-export default function Header({ onMenuClick, onAddPassword, onViewPassword }: HeaderProps) {
+export default function Header({ onMenuClick, onAddPassword, onViewPassword, onAddToken }: HeaderProps) {
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
   const { toast } = useToast();
@@ -72,7 +73,7 @@ export default function Header({ onMenuClick, onAddPassword, onViewPassword }: H
             </Link>
           </div>
           <div className="flex items-center gap-2 sm:gap-4">
-            {user && <CommandPalette onAddPassword={onAddPassword} onViewPassword={onViewPassword} />}
+            {user && <CommandPalette onAddPassword={onAddPassword} onViewPassword={onViewPassword} onAddToken={onAddToken} />}
             <ThemeToggle />
             {isUserLoading ? (
               <div className="h-8 w-8 bg-muted rounded-full animate-pulse" />

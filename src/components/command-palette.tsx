@@ -12,6 +12,7 @@ import {
   CommandSeparator,
 } from "@/components/ui/command";
 import { useVault } from "@/context/vault-context";
+import { useTokens } from "@/context/token-context";
 import { useRouter } from "next/navigation";
 import {
   Search,
@@ -23,18 +24,22 @@ import {
   Star,
   Tag,
   KeyRound,
+  Key,
+  Network,
 } from "lucide-react";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 
 type CommandPaletteProps = {
   onAddPassword?: () => void;
   onViewPassword?: (id: string) => void;
+  onAddToken?: () => void;
 };
 
-export function CommandPalette({ onAddPassword, onViewPassword }: CommandPaletteProps) {
+export function CommandPalette({ onAddPassword, onViewPassword, onAddToken }: CommandPaletteProps) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
   const { passwords, folders, allTags, selectFolder, selectTag } = useVault();
+  const { tokens } = useTokens();
 
   const activePasswords = passwords.filter(p => !p.deletedAt);
 
@@ -52,7 +57,7 @@ export function CommandPalette({ onAddPassword, onViewPassword }: CommandPalette
         return;
       }
       
-      if (e.key === "k") {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
         setOpen((open) => !open);
       }
@@ -76,7 +81,7 @@ export function CommandPalette({ onAddPassword, onViewPassword }: CommandPalette
         <Search className="h-4 w-4" />
         <span>Search...</span>
         <kbd className="pointer-events-none ml-auto inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
-          K
+          ⌘K
         </kbd>
       </div>
       <CommandDialog open={open} onOpenChange={setOpen}>
@@ -93,6 +98,12 @@ export function CommandPalette({ onAddPassword, onViewPassword }: CommandPalette
                 <span>Add Password</span>
               </CommandItem>
             )}
+            {onAddToken && (
+                <CommandItem onSelect={() => handleSelect(onAddToken)}>
+                    <Key className="mr-2 h-4 w-4" />
+                    <span>Add API Token</span>
+                </CommandItem>
+            )}
           </CommandGroup>
           <CommandSeparator />
           <CommandGroup heading="Navigation">
@@ -104,19 +115,27 @@ export function CommandPalette({ onAddPassword, onViewPassword }: CommandPalette
               <Shield className="mr-2 h-4 w-4" />
               <span>Vault</span>
             </CommandItem>
+            <CommandItem onSelect={() => handleSelect(() => router.push("/providers"))}>
+              <Network className="mr-2 h-4 w-4" />
+              <span>Providers</span>
+            </CommandItem>
+            <CommandItem onSelect={() => handleSelect(() => router.push("/tokens"))}>
+              <Key className="mr-2 h-4 w-4" />
+              <span>API Tokens</span>
+            </CommandItem>
+             <CommandItem onSelect={() => handleSelect(() => {
+              selectFolder('favorites');
+              router.push("/vault");
+            })}>
+              <Star className="mr-2 h-4 w-4" />
+              <span>Favorites</span>
+            </CommandItem>
             <CommandItem onSelect={() => handleSelect(() => {
               selectFolder('trash');
               router.push("/vault");
             })}>
               <Archive className="mr-2 h-4 w-4" />
               <span>Trash</span>
-            </CommandItem>
-            <CommandItem onSelect={() => handleSelect(() => {
-              selectFolder('favorites');
-              router.push("/vault");
-            })}>
-              <Star className="mr-2 h-4 w-4" />
-              <span>Favorites</span>
             </CommandItem>
           </CommandGroup>
           {folders.length > 0 && (
@@ -161,11 +180,13 @@ export function CommandPalette({ onAddPassword, onViewPassword }: CommandPalette
             <>
               <CommandSeparator />
               <CommandGroup heading="Passwords">
-                {activePasswords.slice(0, 8).map((password) => (
+                {activePasswords.slice(0, 5).map((password) => (
                   <CommandItem
                     key={password.id}
+                    value={`password-${password.serviceName}-${password.username}`}
                     onSelect={() => handleSelect(() => {
                       if (onViewPassword) {
+                        router.push('/vault');
                         onViewPassword(password.id);
                       }
                     })}
@@ -175,6 +196,23 @@ export function CommandPalette({ onAddPassword, onViewPassword }: CommandPalette
                       <span>{password.serviceName}</span>
                       <span className="text-xs text-muted-foreground">{password.username}</span>
                     </div>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </>
+          )}
+           {tokens.length > 0 && (
+            <>
+              <CommandSeparator />
+              <CommandGroup heading="API Tokens">
+                {tokens.slice(0, 5).map((token) => (
+                  <CommandItem
+                    key={token.id}
+                    value={`token-${token.name}`}
+                    onSelect={() => handleSelect(() => router.push('/tokens'))}
+                  >
+                    <Key className="mr-2 h-4 w-4" />
+                    <span>{token.name}</span>
                   </CommandItem>
                 ))}
               </CommandGroup>

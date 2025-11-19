@@ -13,6 +13,7 @@ function TokensPage() {
   const { folders, addFolder, selectFolder, selectTag, allTags, selectedFolderId, selectedTag } = useVault();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(false);
+  const [isTokenFormOpen, setIsTokenFormOpen] = useState(false);
 
   const toggleSidebar = () => {
     const isMobile = window.innerWidth < 768;
@@ -25,7 +26,7 @@ function TokensPage() {
 
   return (
     <div className="flex flex-col h-screen bg-background overflow-hidden">
-      <Header onMenuClick={toggleSidebar} />
+      <Header onMenuClick={toggleSidebar} onAddToken={() => setIsTokenFormOpen(true)} />
       <MobileSidebar
         isOpen={isMobileSidebarOpen}
         onOpenChange={setIsMobileSidebarOpen}
@@ -54,7 +55,10 @@ function TokensPage() {
           />
         </aside>
         <main className="overflow-y-auto p-4 sm:p-6 lg:p-8">
-            <TokenList />
+            <TokenList 
+                isFormOpen={isTokenFormOpen}
+                onFormOpenChange={setIsTokenFormOpen}
+            />
         </main>
       </div>
     </div>
